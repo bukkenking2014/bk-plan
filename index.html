@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BKマネージャー 事業計画シミュレーター｜物件王</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="app-header no-print">
+  <div class="brand">
+    <span class="mark">物件王</span>
+    <span class="sub">事業計画シミュレーター</span>
+  </div>
+  <nav class="app-nav" id="appNav">
+    <button data-view="wizard">① 事業計画入力</button>
+    <button data-view="report">② 事業計画書</button>
+    <button data-view="salary">給与整合性チェック</button>
+    <button data-view="incentive">インセンティブ試算</button>
+    <button data-view="skill">スタッフ能力評価</button>
+  </nav>
+  <div class="cloud-actions">
+    <button id="cloudSaveBtn" class="btn-outline btn-sm" type="button">☁ 保存してURL発行</button>
+    <button id="cloudSettingsBtn" class="btn-outline btn-sm" type="button" title="クラウド保存の設定" aria-label="クラウド保存の設定">⚙</button>
+  </div>
+</header>
+
+<main class="app-main" id="appMain">
+  <!-- JSにより動的にレンダリング -->
+</main>
+
+<script src="js/defaults.js"></script>
+<script src="js/calc.js"></script>
+<script src="js/schedule.js"></script>
+<script src="js/content.js"></script>
+<script src="js/state.js"></script>
+<script src="js/cloud.js"></script>
+<script src="js/salary.js"></script>
+<script src="js/incentive.js"></script>
+<script src="js/skill.js"></script>
+<script src="js/ui-common.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/ui-wizard.js"></script>
+<script src="js/ui-report.js"></script>
+<script src="js/ui-tools.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
