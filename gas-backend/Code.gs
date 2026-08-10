@@ -1,5 +1,5 @@
 /**
- * BKマネージャー 事業計画シミュレーター - クラウド保存バックエンド
+ * オーナー研修 事業計画シミュレーター - クラウド保存バックエンド
  *
  * このファイルは Google スプレッドシートに紐づく Google Apps Script（GAS）です。
  * 「保存」ボタンから送信された会社ごとの入力データ（appState一式のJSON）を
@@ -17,20 +17,46 @@
  * 管理してください（このスクリプトの実行権限とは別です）。
  */
 
+// アプリの公開URL（会社ごとの共有URL＝ここに ?id=... を付けたもの）を作る際の土台。
+// アプリの公開先を変更した場合は、ここを書き換えて再デプロイしてください。
+const APP_BASE_URL = 'https://ishikawa-bukkenking.github.io/bk-plan/';
+
 const SHEET_NAME = 'companies';
-const HEADERS = ['id', 'companyName', 'createdAt', 'updatedAt', 'openDate', 'year1OperatingIncome', 'year2OperatingIncome', 'dataJson'];
+// 列の並び：id・会社名・共有URL（クリックで開ける）・作成日時・更新日時・オープン予定日・
+// 1年目/2年目営業損益・保存データ本体（JSON、機械可読用につき最後尾かつ狭め表示）
+const HEADERS = ['id', '会社名', '共有URL', '作成日時', '更新日時', 'オープン予定日', '1年目営業損益', '2年目営業損益', 'データ(JSON)'];
+const COL = { id: 1, companyName: 2, shareUrl: 3, createdAt: 4, updatedAt: 5, openDate: 6, year1: 7, year2: 8, dataJson: 9 };
 
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
+  const isNew = !sheet;
+  if (isNew) {
     sheet = ss.insertSheet(SHEET_NAME);
   }
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(HEADERS);
-    sheet.setFrozenRows(1);
+    formatSheet_(sheet);
   }
   return sheet;
+}
+
+// 見やすさのための体裁設定（初回作成時に一度だけ適用）
+function formatSheet_(sheet) {
+  const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
+  headerRange.setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
+  sheet.setFrozenRows(1);
+  sheet.setColumnWidth(COL.id, 110);
+  sheet.setColumnWidth(COL.companyName, 180);
+  sheet.setColumnWidth(COL.shareUrl, 90);
+  sheet.setColumnWidth(COL.createdAt, 150);
+  sheet.setColumnWidth(COL.updatedAt, 150);
+  sheet.setColumnWidth(COL.openDate, 110);
+  sheet.setColumnWidth(COL.year1, 130);
+  sheet.setColumnWidth(COL.year2, 130);
+  sheet.setColumnWidth(COL.dataJson, 90);
+  // データ(JSON)列は人が読む列ではないため折りたたんで隠す（必要な時だけ展開して見られる）
+  sheet.hideColumns(COL.dataJson);
 }
 
 function jsonResponse_(obj) {
@@ -43,11 +69,15 @@ function generateId_() {
 }
 
 function findRowById_(sheet, id) {
-  const values = sheet.getDataRange().getValues();
+  const values = sheet.getRange(1, COL.id, sheet.getLastRow(), 1).getValues();
   for (let i = 1; i < values.length; i++) {
     if (values[i][0] === id) return i + 1; // 1-indexed row number
   }
   return -1;
+}
+
+function shareUrlFormula_(id) {
+  return `=HYPERLINK("${APP_BASE_URL}?id=${id}","開く")`;
 }
 
 function doGet(e) {
@@ -62,15 +92,16 @@ function doGet(e) {
       return jsonResponse_({ ok: false, error: '指定されたIDのデータが見つかりません' });
     }
     const values = sheet.getRange(row, 1, 1, HEADERS.length).getValues()[0];
-    const record = {};
-    HEADERS.forEach((h, i) => (record[h] = values[i]));
     let data;
     try {
-      data = JSON.parse(record.dataJson);
+      data = JSON.parse(values[COL.dataJson - 1]);
     } catch (err) {
       return jsonResponse_({ ok: false, error: '保存データの読み込みに失敗しました' });
     }
-    return jsonResponse_({ ok: true, id: record.id, companyName: record.companyName, updatedAt: record.updatedAt, data: data });
+    return jsonResponse_({
+      ok: true, id: values[COL.id - 1], companyName: values[COL.companyName - 1],
+      updatedAt: values[COL.updatedAt - 1], data: data
+    });
   } catch (err) {
     return jsonResponse_({ ok: false, error: String(err) });
   }
@@ -82,29 +113,34 @@ function doPost(e) {
     const companyName = (body.companyName || '（会社名未入力）').toString();
     const data = body.data || {};
     const meta = body.meta || {};
-    const now = new Date().toISOString();
+    const now = new Date();
     const sheet = getSheet_();
 
     let id = (body.id || '').toString().trim();
     let row = id ? findRowById_(sheet, id) : -1;
+    let createdAt = now;
+
+    if (row !== -1) {
+      createdAt = sheet.getRange(row, COL.createdAt).getValue();
+    } else {
+      id = generateId_();
+    }
+
+    const rowValues = [
+      id, companyName, shareUrlFormula_(id), createdAt, now,
+      meta.openDate || '', meta.year1OperatingIncome || '', meta.year2OperatingIncome || '',
+      JSON.stringify(data)
+    ];
 
     if (row === -1) {
-      // 新規保存（idが未指定、または指定idが見つからない場合は新規発行）
-      id = generateId_();
-      sheet.appendRow([
-        id, companyName, now, now,
-        meta.openDate || '', meta.year1OperatingIncome || '', meta.year2OperatingIncome || '',
-        JSON.stringify(data)
-      ]);
+      sheet.appendRow(rowValues);
+      const newRow = sheet.getLastRow();
+      sheet.getRange(newRow, COL.createdAt, 1, 2).setNumberFormat('yyyy/mm/dd hh:mm');
+      sheet.getRange(newRow, COL.year1, 1, 2).setNumberFormat('#,##0"円"');
     } else {
-      // 既存レコードの更新（同じURLで上書き保存）
-      sheet.getRange(row, 2, 1, HEADERS.length - 1).setValues([[
-        companyName, sheet.getRange(row, 3).getValue(), now,
-        meta.openDate || '', meta.year1OperatingIncome || '', meta.year2OperatingIncome || '',
-        JSON.stringify(data)
-      ]]);
+      sheet.getRange(row, 1, 1, rowValues.length).setValues([rowValues]);
     }
-    return jsonResponse_({ ok: true, id: id, updatedAt: now });
+    return jsonResponse_({ ok: true, id: id, updatedAt: now.toISOString() });
   } catch (err) {
     return jsonResponse_({ ok: false, error: String(err) });
   }
