@@ -358,21 +358,53 @@ function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
   const sgaTotalWithInitial = range(12).map(i => sgaTotal[i] + initialSetup[i]);
 
   const operatingIncome = range(12).map(i => totalRevenue[i] - sgaTotal[i]);
+  const extras = computePLExtras(state, operatingIncome, 0);
 
   return {
     months: MONTHS_1, contracts, brokerageRevenue, reformRevenue, selfBuildRevenue, referralRevenue, totalRevenue,
     reformCogs, selfBuildCogs, totalCogs, grossProfit,
     lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, incentive, initialSetup },
-    sgaTotal, sgaTotalWithInitial, operatingIncome,
+    sgaTotal, sgaTotalWithInitial, operatingIncome, ...extras,
     sumFirstHalf: sumRange(totalRevenue, 0, 6), sumSecondHalf: sumRange(totalRevenue, 6, 12), sumYear: sumAll(totalRevenue),
     sgaSumYear: sumAll(sgaTotal), opIncomeSumYear: sumAll(operatingIncome)
   };
 }
 
 /* ---------------------------------------------------------------------- */
+/* 7.5 PL共通：営業外損益～当期純損益・総資産（行43:68相当）                  */
+/* ---------------------------------------------------------------------- */
+// 元Excelでは受取利息/雑収入/支払利息/雑損失/特別利益・損失/法人税等は全て
+// 空欄（既定値0）の手動入力セル。openingAssets は前年からの総資産繰越（PL2年目用、
+// PL1年目は0スタート）。
+function computePLExtras(state, operatingIncome, openingAssets) {
+  const pe = state.plExtras || {};
+  const interestIncome = Array(12).fill(nonNeg(pe.interestIncome) / 12); // 行43
+  const miscIncome = Array(12).fill(nonNeg(pe.miscIncome) / 12); // 行44
+  const nonOperatingIncome = range(12).map(i => interestIncome[i] + miscIncome[i]); // 行45 営業外収益
+  const interestExpense = Array(12).fill(nonNeg(pe.interestExpense) / 12); // 行46
+  const miscLoss = Array(12).fill(nonNeg(pe.miscLoss) / 12); // 行47
+  const nonOperatingExpense = range(12).map(i => interestExpense[i] + miscLoss[i]); // 行48 営業外費用
+  const ordinaryIncome = range(12).map(i => operatingIncome[i] + nonOperatingIncome[i] - nonOperatingExpense[i]); // 行50 経常損益
+  const extraordinaryItems = Array(12).fill((Number(pe.extraordinaryItems) || 0) / 12); // 行53（マイナス可）
+  const incomeBeforeTax = range(12).map(i => ordinaryIncome[i] + extraordinaryItems[i]); // 行54 税引前当期純損益
+  const corporateTax = Array(12).fill(nonNeg(pe.corporateTax) / 12); // 行56 法人税等
+  const netIncome = range(12).map(i => incomeBeforeTax[i] - corporateTax[i]); // 行57 当期純損益
+  // 行68 総資産：当期純損益の累積（前年からの繰越＋当年の月次累計）
+  const cumulativeAssets = range(12).map(i => openingAssets + sumRange(netIncome, 0, i + 1));
+
+  return {
+    nonOperatingIncomeLines: { interestIncome, miscIncome }, nonOperatingIncome,
+    nonOperatingExpenseLines: { interestExpense, miscLoss }, nonOperatingExpense,
+    ordinaryIncome, extraordinaryItems, incomeBeforeTax, corporateTax, netIncome, cumulativeAssets,
+    ordinaryIncomeSumYear: sumAll(ordinaryIncome), netIncomeSumYear: sumAll(netIncome),
+    closingAssets: cumulativeAssets[11]
+  };
+}
+
+/* ---------------------------------------------------------------------- */
 /* 8. PL（2年目以降） 月次                                                */
 /* ---------------------------------------------------------------------- */
-function computePL2(state, staff, areas, otherCostsAnnual, businessPlan) {
+function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, openingAssets) {
   const fee = areas.feeRoundedYen;
   const F11 = nonNeg(state.confirmedContractsPerMonth);
   const contracts = Array(12).fill(F11);
@@ -424,12 +456,13 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan) {
     consulting[i] + storeRunning[i] + incentive[i]
   );
   const operatingIncome = range(12).map(i => totalRevenue[i] - sgaTotal[i]);
+  const extras = computePLExtras(state, operatingIncome, Number(openingAssets) || 0); // 前年の赤字繰越もあり得るため0クランプしない
 
   return {
     months: MONTHS_2, contracts, brokerageRevenue, reformRevenue, selfBuildRevenue, referralRevenue, totalRevenue,
     reformCogs, selfBuildCogs, totalCogs, grossProfit,
     lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, incentive, initialSetup },
-    sgaTotal, operatingIncome,
+    sgaTotal, operatingIncome, ...extras,
     sumFirstHalf: sumRange(totalRevenue, 0, 6), sumSecondHalf: sumRange(totalRevenue, 6, 12), sumYear: sumAll(totalRevenue),
     sgaSumYear: sumAll(sgaTotal), opIncomeSumYear: sumAll(operatingIncome)
   };
@@ -455,7 +488,8 @@ function computeSummary(pl1, pl2) {
       referral: { amount: sumAll(pl1.referralRevenue) },
       totalRevenue: pl1.sumYear,
       sgaTotal: pl1.sgaSumYear,
-      operatingIncome: pl1.sumYear - pl1.sgaSumYear
+      operatingIncome: pl1.sumYear - pl1.sgaSumYear,
+      ordinaryIncome: pl1.ordinaryIncomeSumYear, netIncome: pl1.netIncomeSumYear, closingAssets: pl1.closingAssets
     },
     year2: {
       brokerage: { count: sumAll(pl2.contracts), amount: sumAll(pl2.brokerageRevenue) },
@@ -464,7 +498,8 @@ function computeSummary(pl1, pl2) {
       referral: { amount: sumAll(pl2.referralRevenue) },
       totalRevenue: pl2.sumYear,
       sgaTotal: pl2.sgaSumYear,
-      operatingIncome: pl2.opIncomeSumYear
+      operatingIncome: pl2.opIncomeSumYear,
+      ordinaryIncome: pl2.ordinaryIncomeSumYear, netIncome: pl2.netIncomeSumYear, closingAssets: pl2.closingAssets
     }
   };
 }
@@ -480,7 +515,7 @@ function runFullCalculation(state) {
   const breakEven = computeBreakEven(state, staff, areas, otherCostsAnnual);
   const businessPlan = computeBusinessPlan(state, staff, areas, breakEven, license);
   const pl1 = computePL1(state, staff, areas, otherCostsAnnual, businessPlan);
-  const pl2 = computePL2(state, staff, areas, otherCostsAnnual, businessPlan);
+  const pl2 = computePL2(state, staff, areas, otherCostsAnnual, businessPlan, pl1.closingAssets);
   const summary = computeSummary(pl1, pl2);
   return { staff, areas, license, otherCostsAnnual, breakEven, businessPlan, pl1, pl2, summary };
 }

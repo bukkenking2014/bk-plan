@@ -286,6 +286,45 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--c
 .preview-panel .mini-table th, .preview-panel .mini-table td { color: #fff; border-color: rgba(255,255,255,.15); }
 .preview-panel .mini-table th { color: var(--color-gold); }
 
+/* ---------- 目標設定：元Excelの見た目を再現するボックス・表レイアウト ----------
+   preview-panel（紺背景）の中で、Excelのセルのような白背景・黒枠の見た目を
+   テーマに関わらず固定色で再現する（この部分だけは意図的にダーク/ライト非対応）。 */
+.excel-mimic { margin-top: 4px; }
+.ex-title { color: #fff; text-align: center; font-size: 1.05em; margin: 0 0 16px; }
+.ex-section-label { color: var(--color-gold); font-weight: 700; margin: 20px 0 8px; font-size: .92em; }
+table.excel-table {
+  width: 100%; border-collapse: collapse; background: #fff; color: #111; font-size: .86em;
+}
+table.excel-table th, table.excel-table td {
+  border: 1px solid #333; padding: 6px 10px; text-align: center;
+}
+table.excel-table thead th { background: #1a1a1a; color: #fff; font-weight: 700; }
+table.excel-table td.ex-cell-input { background: #d6f3fb; font-weight: 700; }
+table.excel-table td.ex-cell-merged { background: #fff; font-weight: 700; }
+table.excel-table.small { max-width: 480px; }
+.ex-breakdown-table td:first-child { text-align: left; background: #eef1f7; font-weight: 700; }
+
+.ex-flow-row { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.ex-box {
+  background: #fff; color: #111; border: 1px solid #333; border-radius: 4px;
+  padding: 8px 14px; min-width: 110px; text-align: center; display: flex; flex-direction: column; justify-content: center;
+}
+.ex-box-highlight { border: 2px solid #1a1a1a; }
+.ex-box-label { font-size: .78em; color: #444; }
+.ex-box-value { font-size: 1.1em; font-weight: 700; margin-top: 2px; }
+.ex-box-value.ex-cell-input { color: #0a5a75; }
+.ex-box-value small { font-size: .6em; font-weight: 400; margin-left: 2px; }
+.ex-box-note { font-size: .7em; color: #b96f14; margin-top: 2px; }
+.ex-op { display: flex; align-items: center; justify-content: center; font-size: 1.2em; font-weight: 700; color: #fff; min-width: 20px; }
+
+.ex-target-row { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.ex-target-box {
+  background: #e5f6ec; border: 1px solid #333; border-radius: 4px; padding: 10px 16px; text-align: center; min-width: 160px;
+}
+.ex-target-label { font-size: .8em; color: #1a1a1a; }
+.ex-target-value { font-size: 1.3em; font-weight: 700; color: #0d7a3e; margin-top: 2px; }
+.ex-target-value small { font-size: .6em; font-weight: 400; margin-left: 2px; color: #1a1a1a; }
+
 .wizard-nav { display: flex; justify-content: space-between; margin-top: 24px; gap: 10px; flex-wrap: wrap; }
 
 /* ---------- Report ---------- */
@@ -330,6 +369,10 @@ table.plain tr.row-subtotal td { font-weight: 700; background: var(--color-surfa
 table.plain tr.row-highlight td { font-weight: 700; background: var(--color-gold-soft); }
 .table-scroll table.plain tr.row-subtotal td:first-child { background: var(--color-surface-alt); }
 .table-scroll table.plain tr.row-highlight td:first-child { background: var(--color-gold-soft); }
+/* row-final：経常損益・当期純損益など、月次PLで最も重要な最終行の強調（元Excelのオレンジ強調に対応） */
+table.plain tr.row-final td { font-weight: 700; background: var(--color-gold); color: #201400; }
+.table-scroll table.plain tr.row-final td:first-child { background: var(--color-gold); color: #201400; }
+table.plain tr.row-final td .neg { color: #6e1c14; }
 
 .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap: 14px; margin: 16px 0; }
 .stat-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 8px; padding: 16px; box-shadow: var(--shadow); }

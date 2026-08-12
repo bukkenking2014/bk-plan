@@ -107,9 +107,11 @@ function createDefaultState() {
       utilities: 600000, // L28 水道光熱費/年
       lease: 320000, // L31 リース料/年
       misc: 240000, // L37 雑費/年
-      training: 50000, // L42 研修費
-      ppcConsulting: 10000, // L43 PPCコンサル
-      svConsulting: 250000, // L44 SVコンサル
+      // 研修費（成長投資費）: L42研修費+L43 PPCコンサル+L44 SVコンサルの合計を1項目にまとめて入力する
+      // （既定値 50,000+10,000+250,000=310,000）。ppcConsulting/svConsultingは後方互換のため残すが常に0固定。
+      training: 310000,
+      ppcConsulting: 0,
+      svConsulting: 0,
       storeRent: 0, // 店舗賃料/月（家賃等発生する場合）
       recruiting: 0, // C43 採用費/年（想定年収×35%目安）
       entertainment: 0, // B44 接待交際費/月
@@ -130,6 +132,18 @@ function createDefaultState() {
     incentiveRule: {
       cutoffFactor: 1.5, // D54 足切り係数
       incentiveRate: 0.2 // D58 インセンティブ率
+    },
+
+    // PL（1年目）／PL（2年目以降）シートの営業外・特別損益～当期純損益ブロック
+    // （行43:57）。元Excelでは全て空欄（既定値0）の手動入力セルのため、
+    // 本アプリでも編集可能な年額入力として用意する（任意項目）。
+    plExtras: {
+      interestIncome: 0, // 受取利息/年
+      miscIncome: 0, // 雑収入/年
+      interestExpense: 0, // 支払利息/年
+      miscLoss: 0, // 雑損失/年
+      extraordinaryItems: 0, // 特別利益・損失/年（マイナス可）
+      corporateTax: 0 // 法人税等/年
     },
 
     // 店舗内装シート J10:J15（必要面積内訳、㎡）※ユーザー編集可の判断による

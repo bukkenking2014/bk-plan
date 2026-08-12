@@ -30,6 +30,11 @@ function man(n) {
   if (n === null || n === undefined || isNaN(n)) return '―';
   return (Math.round(n * 10) / 10).toLocaleString('ja-JP') + '万円';
 }
+// 手数料など、四捨五入ではなく切り捨て（小数第1位）で表示したい金額用
+function manFloor(n) {
+  if (n === null || n === undefined || isNaN(n)) return '―';
+  return (Math.floor(n * 10) / 10).toLocaleString('ja-JP') + '万円';
+}
 function num(n, digits) {
   if (n === null || n === undefined || isNaN(n)) return '―';
   return Number(n).toLocaleString('ja-JP', { maximumFractionDigits: digits || 0, minimumFractionDigits: digits || 0 });
@@ -155,9 +160,9 @@ function areaTypeBreakdownTable(areaName, detail, dark) {
       <td>${esc(PROPERTY_TYPE_LABELS[t])}</td>
       <td>${num(detail.counts[t])}件</td>
       <td>${man(detail.prices[t])}</td>
-      <td>${man(detail.fees[t])}</td>
+      <td>${manFloor(detail.fees[t])}</td>
       <td>${pct(detail.compRatio[t], 1)}</td>
-      <td>${man(detail.weightedFee[t])}</td>
+      <td>${manFloor(detail.weightedFee[t])}</td>
     </tr>`).join('');
   const headColor = dark ? 'color:#cba55c' : '';
   return `
@@ -171,7 +176,7 @@ function areaTypeBreakdownTable(areaName, detail, dark) {
         </tr>
       </thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr><td colspan="5">手数料/件（加重平均）</td><td>${man(detail.feePerDealMan)}</td></tr></tfoot>
+      <tfoot><tr><td colspan="5">手数料/件（加重平均）</td><td>${manFloor(detail.feePerDealMan)}</td></tr></tfoot>
     </table>
     </div>`;
 }

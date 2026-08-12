@@ -173,13 +173,15 @@ function monthlyPLTable(pl) {
     ['communication', '通信費'], ['consumables', '消耗品費'], ['officeSupplies', '事務用品費'],
     ['equipment', '備品費'], ['utilities', '水道光熱費'], ['dues', '諸会費'], ['lease', 'リース料'],
     ['insurance', '保険料'], ['depreciation', '減価償却費'], ['tax', '租税公課'], ['misc', '雑費'],
-    ['training', '研修費等'], ['consulting', 'コンサル費（SV,PPC）'], ['storeRunning', '店舗経費（ランニング）'],
-    ['incentive', 'インセンティブ']
+    ['storeRunning', '店舗経費（ランニング）'], ['incentive', 'インセンティブ']
   ];
   const monthHeader = pl.months.map(m => `<th>${m}</th>`).join('');
-  function row(label, arr) { return `<tr><td>${esc(label)}</td>${arr.map(v => `<td>${yenAcct(v)}</td>`).join('')}<td>${yenAcct(sumAll(arr))}</td></tr>`; }
+  function row(label, arr, cls) { return `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(label)}</td>${arr.map(v => `<td>${yenAcct(v)}</td>`).join('')}<td>${yenAcct(sumAll(arr))}</td></tr>`; }
   function countRow(label, arr) { return `<tr><td>${esc(label)}</td>${arr.map(v => `<td>${num(v)}件</td>`).join('')}<td>${num(sumAll(arr))}件</td></tr>`; }
   const lineRows = lineLabels.map(([key, label]) => row(label, pl.lines[key])).join('');
+  // 研修費（成長投資費）＝研修費＋コンサル費（SV,PPC）を合算した1行で表示（入力を1項目に統一したのに合わせる）
+  const trainingCombined = pl.lines.training.map((v, i) => v + pl.lines.consulting[i]);
+  // 営業外収益＝受取利息＋雑収入、営業外費用＝支払利息＋雑損失
   return `
     <div class="table-scroll">
     <table class="plain">
@@ -190,15 +192,22 @@ function monthlyPLTable(pl) {
         ${row('リフォーム', pl.reformRevenue)}
         ${row('自社請負', pl.selfBuildRevenue)}
         ${row('他社紹介', pl.referralRevenue)}
-        <tr class="row-subtotal"><td>売上高 合計</td>${pl.totalRevenue.map(v=>`<td>${yenAcct(v)}</td>`).join('')}<td>${yenAcct(sumAll(pl.totalRevenue))}</td></tr>
+        ${row('売上高 合計', pl.totalRevenue, 'row-subtotal')}
         ${row('売上原価', pl.totalCogs)}
-        <tr class="row-subtotal"><td>売上総利益</td>${pl.grossProfit.map(v=>`<td>${yenAcct(v)}</td>`).join('')}<td>${yenAcct(sumAll(pl.grossProfit))}</td></tr>
+        ${row('売上総利益', pl.grossProfit, 'row-subtotal')}
         ${lineRows}
-        <tr class="row-highlight"><td>販売管理費 計</td>${pl.sgaTotal.map(v=>`<td>${yenAcct(v)}</td>`).join('')}<td>${yenAcct(sumAll(pl.sgaTotal))}</td></tr>
+        ${row('研修費（成長投資費）', trainingCombined)}
+        ${row('販売管理費 計', pl.sgaTotal, 'row-highlight')}
+        ${row('営業損益', pl.operatingIncome, 'row-highlight')}
+        ${row('営業外収益', pl.nonOperatingIncome, 'row-subtotal')}
+        ${row('営業外費用', pl.nonOperatingExpense, 'row-subtotal')}
+        ${row('経常損益', pl.ordinaryIncome, 'row-final')}
+        ${row('特別利益・損失', pl.extraordinaryItems)}
+        ${row('税引前当期純損益', pl.incomeBeforeTax, 'row-subtotal')}
+        ${row('法人税等', pl.corporateTax)}
+        ${row('当期純損益', pl.netIncome, 'row-final')}
+        ${row('総資産', pl.cumulativeAssets, 'row-subtotal')}
       </tbody>
-      <tfoot>
-        <tr><td>営業損益</td>${pl.operatingIncome.map(v=>`<td>${yenAcct(v)}</td>`).join('')}<td>${yenAcct(sumAll(pl.operatingIncome))}</td></tr>
-      </tfoot>
     </table>
     </div>`;
 }
