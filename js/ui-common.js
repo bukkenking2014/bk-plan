@@ -44,37 +44,26 @@ function esc(s) {
 }
 
 // data-path属性を持つ入力要素からappStateへ値を反映する委譲ハンドラをコンテナに設置
+//
+// IME（日本語入力）変換中の扱いについて：
+// 変換中に毎回state更新→プレビュー再描画を走らせると、環境によっては変換中の
+// 文字列が消えて英数字しか入力できないように見える事がある。これを防ぐため、
+// 変換中は反映処理をスキップし、変換確定後にまとめて反映する。
+// e.isComposing はブラウザによって信頼できない事があるため（特にSafariは
+// 過去バージョンでinputイベントのisComposingが正しく立たない不具合が知られている）、
+// compositionstart/compositionendを自前で追跡して判定する。
 function attachBindings(container, onChange) {
+  let composingEl = null;
+  container.addEventListener('compositionstart', e => { composingEl = e.target; });
+  container.addEventListener('compositionend', e => {
+    composingEl = null;
+    // 変換確定時、ブラウザによってはcompositionendの後にinputイベントが
+    // 発火しない事があるため、ここで改めて反映処理を呼んで確実に反映する。
+    commitInput_(container, e.target, onChange);
+  });
   container.addEventListener('input', e => {
-    const el = e.target;
-    // IME変換中（日本語入力の未確定文字列）は反映処理をスキップする。
-    // 変換確定時に改めてinputイベントが発火するため、確定後の値で正しく反映される。
-    // これを行わないと、変換中に毎回state更新→プレビュー再描画が走り、
-    // 環境によっては変換中の文字列が消えて英数字しか入力できないように見える事がある。
-    if (e.isComposing) return;
-    const path = el.getAttribute('data-path');
-    if (!path) return;
-    let value;
-    if (el.type === 'checkbox') value = el.checked;
-    else if (el.type === 'number') {
-      value = el.value === '' ? 0 : parseFloat(el.value);
-      if (!isNaN(value) && el.min !== '') {
-        const min = parseFloat(el.min);
-        if (!isNaN(min) && value < min) { value = min; el.value = min; }
-      }
-    }
-    else value = el.value;
-    setPath(appState, path, value);
-    saveState();
-    // 月⇄年など「もう一方の単位換算」表示を持つ項目があればライブ更新する
-    if (el.type === 'number') {
-      container.querySelectorAll(`[data-dual-source="${path}"]`).forEach(d => {
-        const factor = parseFloat(d.getAttribute('data-dual-factor'));
-        const label = d.getAttribute('data-dual-label') || '';
-        d.textContent = label + yen(value * factor);
-      });
-    }
-    if (onChange) onChange();
+    if (e.isComposing || composingEl === e.target) return;
+    commitInput_(container, e.target, onChange);
   });
   container.addEventListener('change', e => {
     const el = e.target;
@@ -87,6 +76,32 @@ function attachBindings(container, onChange) {
       if (onChange) onChange();
     }
   });
+}
+
+function commitInput_(container, el, onChange) {
+  const path = el.getAttribute('data-path');
+  if (!path) return;
+  let value;
+  if (el.type === 'checkbox') value = el.checked;
+  else if (el.type === 'number') {
+    value = el.value === '' ? 0 : parseFloat(el.value);
+    if (!isNaN(value) && el.min !== '') {
+      const min = parseFloat(el.min);
+      if (!isNaN(min) && value < min) { value = min; el.value = min; }
+    }
+  }
+  else value = el.value;
+  setPath(appState, path, value);
+  saveState();
+  // 月⇄年など「もう一方の単位換算」表示を持つ項目があればライブ更新する
+  if (el.type === 'number') {
+    container.querySelectorAll(`[data-dual-source="${path}"]`).forEach(d => {
+      const factor = parseFloat(d.getAttribute('data-dual-factor'));
+      const label = d.getAttribute('data-dual-label') || '';
+      d.textContent = label + yen(value * factor);
+    });
+  }
+  if (onChange) onChange();
 }
 
 // opts.dual: { label, factor } を渡すと、月⇄年など「もう一方の単位換算」を
