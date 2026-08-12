@@ -59,11 +59,11 @@ function formatSheet_(sheet) {
   sheet.hideColumns(COL.dataJson);
 }
 
-// スプレッドシートを開くと「BKマネージャー」メニューが追加され、そこから体裁を
+// スプレッドシートを開くと「事業計画シミュレーター」メニューが追加され、そこから体裁を
 // いつでも手動で整え直せる（既存データは失われない。列がずれている場合は補正する）。
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu('BKマネージャー')
+    .createMenu('事業計画シミュレーター')
     .addItem('スプレッドシートの体裁を整える', 'tidyUpSheet')
     .addToUi();
 }
