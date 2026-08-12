@@ -59,6 +59,49 @@ function formatSheet_(sheet) {
   sheet.hideColumns(COL.dataJson);
 }
 
+// スプレッドシートを開くと「BKマネージャー」メニューが追加され、そこから体裁を
+// いつでも手動で整え直せる（既存データは失われない。列がずれている場合は補正する）。
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('BKマネージャー')
+    .addItem('スプレッドシートの体裁を整える', 'tidyUpSheet')
+    .addToUi();
+}
+
+function tidyUpSheet() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) { ui.alert('「companies」シートが見つかりません。まず一度アプリから保存を行ってください。'); return; }
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const currentHeaders = lastRow > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+
+  // 旧レイアウト（共有URL列が無い）の場合は3列目に挿入して新レイアウトへ移行する
+  if (currentHeaders[2] !== HEADERS[2]) {
+    sheet.insertColumnBefore(3);
+  }
+
+  // ヘッダー行を最新の見出しに揃える
+  sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+
+  if (lastRow > 1) {
+    // 共有URL列が空の既存行にHYPERLINK式を補完（すでに入っている行は上書きしない）
+    const ids = sheet.getRange(2, COL.id, lastRow - 1, 1).getValues();
+    const shareRange = sheet.getRange(2, COL.shareUrl, lastRow - 1, 1);
+    const currentShare = shareRange.getFormulas();
+    const newFormulas = ids.map((r, i) => [currentShare[i][0] || (r[0] ? shareUrlFormula_(r[0]) : '')]);
+    shareRange.setFormulas(newFormulas);
+
+    sheet.getRange(2, COL.createdAt, lastRow - 1, 2).setNumberFormat('yyyy/mm/dd hh:mm');
+    sheet.getRange(2, COL.year1, lastRow - 1, 2).setNumberFormat('#,##0"円"');
+  }
+
+  formatSheet_(sheet);
+  ui.alert('スプレッドシートの体裁を整えました。');
+}
+
 function jsonResponse_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
