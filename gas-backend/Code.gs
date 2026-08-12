@@ -19,7 +19,7 @@
 
 // アプリの公開URL（会社ごとの共有URL＝ここに ?id=... を付けたもの）を作る際の土台。
 // アプリの公開先を変更した場合は、ここを書き換えて再デプロイしてください。
-const APP_BASE_URL = 'https://bukkenoh-plan.com/';
+const APP_BASE_URL = 'https://bukkenking2014.github.io/bk-plan/';
 
 const SHEET_NAME = 'companies';
 // 列の並び：id・会社名・共有URL（クリックで開ける）・作成日時・更新日時・オープン予定日・
