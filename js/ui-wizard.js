@@ -105,7 +105,7 @@ function renderStepLicense() {
         <div class="field" style="flex:2">
           <label>${esc(item.label)}</label>
         </div>
-        <div class="field">
+        <div class="field field-numeric">
           <div class="suffix-input">
             <input type="text" inputmode="decimal" data-numeric="true" data-path="license.items.${idx}.amount" value="${esc(formatNum(item.amount))}" data-min="0" style="text-align:right" autocomplete="off">
             <span>円</span>

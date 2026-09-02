@@ -239,8 +239,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .field-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; }
 .field { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 5px; }
-/* 数値入力欄（金額・件数・料率など）は長い文字列を入れないため、既定で幅を狭くする */
-.field.field-numeric { flex: 0 1 150px; min-width: 110px; max-width: 150px; }
+/* 数値入力欄（金額・件数・料率など）は長い文字列を入れないため、既定で幅を狭くする。
+   6桁の金額（例：300,000）＋単位表記が入っても数字が見切れないよう、
+   幅を詰める分、この欄だけ文字サイズ・内側余白も少し小さくする。 */
+.field.field-numeric { flex: 0 1 135px; min-width: 100px; max-width: 135px; }
 .field label { font-size: .82em; color: var(--color-ink-soft); font-weight: 600; letter-spacing: .01em; }
 .field .hint { font-size: .75em; color: var(--color-ink-soft); opacity: .8; }
 input[type=text], input[type=number], input[type=date], select, textarea {
@@ -248,6 +250,7 @@ input[type=text], input[type=number], input[type=date], select, textarea {
   font-size: .95em; font-family: inherit; background: var(--color-bg);
   color: var(--color-ink);
 }
+.field-numeric input[data-numeric="true"] { padding: 7px 8px; font-size: .86em; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--color-gold); background: var(--color-surface); }
 .suffix-input { display: flex; align-items: center; gap: 6px; }
 .suffix-input input { flex: 1; min-width: 0; }
@@ -300,39 +303,39 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--c
    preview-panel（紺背景）の中で、Excelのセルのような白背景・黒枠の見た目を
    テーマに関わらず固定色で再現する（この部分だけは意図的にダーク/ライト非対応）。 */
 .excel-mimic { margin-top: 4px; }
-.ex-title { color: #fff; text-align: center; font-size: 1.05em; margin: 0 0 16px; }
-.ex-section-label { color: var(--color-gold); font-weight: 700; margin: 20px 0 8px; font-size: .92em; }
+.ex-title { color: #fff; text-align: center; font-size: 1.02em; margin: 0 0 10px; }
+.ex-section-label { color: var(--color-gold); font-weight: 700; margin: 12px 0 5px; font-size: .88em; }
 table.excel-table {
-  width: 100%; border-collapse: collapse; background: #fff; color: #111; font-size: .86em;
+  width: 100%; border-collapse: collapse; background: #fff; color: #111; font-size: .82em;
 }
 table.excel-table th, table.excel-table td {
-  border: 1px solid #333; padding: 6px 10px; text-align: center;
+  border: 1px solid #333; padding: 4px 7px; text-align: center;
 }
 table.excel-table thead th { background: #1a1a1a; color: #fff; font-weight: 700; }
 table.excel-table td.ex-cell-input { background: #d6f3fb; font-weight: 700; }
 table.excel-table td.ex-cell-merged { background: #fff; font-weight: 700; }
-table.excel-table.small { max-width: 480px; }
+table.excel-table.small { max-width: 420px; }
 .ex-breakdown-table td:first-child { text-align: left; background: #eef1f7; font-weight: 700; }
 
-.ex-flow-row { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.ex-flow-row { display: flex; align-items: stretch; gap: 5px; flex-wrap: wrap; margin: 6px 0; }
 .ex-box {
   background: #fff; color: #111; border: 1px solid #333; border-radius: 4px;
-  padding: 8px 14px; min-width: 110px; text-align: center; display: flex; flex-direction: column; justify-content: center;
+  padding: 5px 10px; min-width: 90px; text-align: center; display: flex; flex-direction: column; justify-content: center;
 }
 .ex-box-highlight { border: 2px solid #1a1a1a; }
-.ex-box-label { font-size: .78em; color: #444; }
-.ex-box-value { font-size: 1.1em; font-weight: 700; margin-top: 2px; }
+.ex-box-label { font-size: .74em; color: #444; }
+.ex-box-value { font-size: 1em; font-weight: 700; margin-top: 1px; }
 .ex-box-value.ex-cell-input { color: #0a5a75; }
 .ex-box-value small { font-size: .6em; font-weight: 400; margin-left: 2px; }
-.ex-box-note { font-size: .7em; color: #b96f14; margin-top: 2px; }
-.ex-op { display: flex; align-items: center; justify-content: center; font-size: 1.2em; font-weight: 700; color: #fff; min-width: 20px; }
+.ex-box-note { font-size: .68em; color: #b96f14; margin-top: 1px; }
+.ex-op { display: flex; align-items: center; justify-content: center; font-size: 1.05em; font-weight: 700; color: #fff; min-width: 14px; }
 
-.ex-target-row { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.ex-target-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .ex-target-box {
-  background: #e5f6ec; border: 1px solid #333; border-radius: 4px; padding: 10px 16px; text-align: center; min-width: 160px;
+  background: #e5f6ec; border: 1px solid #333; border-radius: 4px; padding: 6px 12px; text-align: center; min-width: 130px;
 }
-.ex-target-label { font-size: .8em; color: #1a1a1a; }
-.ex-target-value { font-size: 1.3em; font-weight: 700; color: #0d7a3e; margin-top: 2px; }
+.ex-target-label { font-size: .76em; color: #1a1a1a; }
+.ex-target-value { font-size: 1.1em; font-weight: 700; color: #0d7a3e; margin-top: 1px; }
 .ex-target-value small { font-size: .6em; font-weight: 400; margin-left: 2px; color: #1a1a1a; }
 
 .wizard-nav { display: flex; justify-content: space-between; margin-top: 24px; gap: 10px; flex-wrap: wrap; }
