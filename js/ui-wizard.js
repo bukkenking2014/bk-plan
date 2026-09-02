@@ -130,7 +130,7 @@ function previewLicense(result) {
   const lic = result.license;
   return `
     <div class="preview-panel">
-      <h3>免許費用サマリー</h3>
+      <h3>免許費用概要</h3>
       <div class="preview-grid">
         <div class="preview-stat"><div class="label">県申請時 小計</div><div class="value">${yen(lic.prefectureSubtotal)}</div></div>
         <div class="preview-stat"><div class="label">協会申請時 小計</div><div class="value">${yen(lic.associationSubtotal)}</div></div>
@@ -216,7 +216,7 @@ function staffGroupHtml(groupKey, groupLabel, list, note) {
     <div class="repeat-item" style="padding:10px 14px;">
       ${list.length > 1 ? `<button class="remove-btn" data-remove-staff="${groupKey}:${idx}">✕</button>` : ''}
       <div class="field-row" style="margin-bottom:0">
-        ${fieldNumber(`${groupLabel}${list.length > 1 ? idx + 1 : ''} 給与`, `staff.${groupKey}.${idx}.salary`, p.salary, { suffix: '円/月', narrow: true })}
+        ${fieldNumber(`${groupLabel}${list.length > 1 ? idx + 1 : ''} 給与`, `staff.${groupKey}.${idx}.salary`, p.salary, { suffix: '円/月' })}
       </div>
     </div>`).join('');
   return `
@@ -357,7 +357,7 @@ function renderStepAd() {
       <p class="desc">目標件数・CPC・CVRからPPC予算とCPA（獲得単価）を自動算出します。ポータル等の追加広告費は任意で編集できます。</p>
       <div class="field-row">
         ${fieldNumber('目標件数（反響数/月）', 'ad.targetLeads', ad.targetLeads, { suffix: '件/月', hint: '目安：営業人数×15件' })}
-        ${fieldNumber('CPC（クリック単価）', 'cpc', appState.cpc, { suffix: '円', hint: 'ターゲットエリアと共通の値です' })}
+        ${fieldLinkedValue('CPC（クリック単価）', num(appState.cpc), { suffix: '円', hint: '「ターゲットエリア」で入力済みの値です' })}
         ${fieldNumber('CVR（反響獲得率）', 'ad.cvr', ad.cvr * 100, { suffix: '%', step: '0.1' })}
       </div>
       <p class="hint">※CVRの入力は%単位。CPA（獲得単価）＝CPC÷CVRで自動計算されます（下のプレビューで確認できます）。</p>

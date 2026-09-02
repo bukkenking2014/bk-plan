@@ -155,7 +155,8 @@ function commitInput_(container, el, onChange) {
 
 // opts.dual: { label, factor } を渡すと、月⇄年など「もう一方の単位換算」を
 // ライブ更新のヒント表示として追加する（例: 円/月の入力に対し年換算を表示、factor=12）。
-// opts.narrow: trueで入力欄の最大幅を狭くする（給与など横に広すぎる項目向け）。
+// 数値入力欄は文章入力欄（会社名等）と違って長い文字列を入れないため、既定で幅を狭くする
+// （.field-numericクラス、CSS側でmax-widthを指定）。opts.wideで従来幅に戻せる。
 function fieldNumber(label, path, value, opts) {
   opts = opts || {};
   const suffix = opts.suffix || '';
@@ -165,7 +166,7 @@ function fieldNumber(label, path, value, opts) {
   const min = opts.min === null ? null : (opts.min !== undefined ? opts.min : 0);
   const dual = opts.dual ? `<div class="hint" data-dual-source="${path}" data-dual-factor="${opts.dual.factor}" data-dual-label="${esc(opts.dual.label)}">${esc(opts.dual.label)}${yen((Number(value) || 0) * opts.dual.factor)}</div>` : '';
   return `
-    <div class="field"${opts.narrow ? ' style="max-width:180px"' : ''}>
+    <div class="field${opts.wide ? '' : ' field-numeric'}">
       <label>${esc(label)}</label>
       <div class="suffix-input">
         <input type="text" inputmode="decimal" data-numeric="true" data-path="${path}" value="${esc(formatNum(value))}" style="text-align:right" ${min !== null ? `data-min="${min}"` : ''} autocomplete="off">
@@ -173,6 +174,18 @@ function fieldNumber(label, path, value, opts) {
       </div>
       ${hint}
       ${dual}
+    </div>`;
+}
+
+// 他のステップで既に入力済みの値を、ここでは編集不要な参照値として青字で表示する。
+// （例：CPCはターゲットエリアで入力済みなので、広告宣伝費では再入力させずここで表示する）
+function fieldLinkedValue(label, formattedValue, opts) {
+  opts = opts || {};
+  return `
+    <div class="field">
+      <label>${esc(label)}</label>
+      <div class="suffix-input"><span class="linked-value" style="padding:9px 0">${esc(formattedValue)}</span>${opts.suffix ? `<span>${esc(opts.suffix)}</span>` : ''}</div>
+      ${opts.hint ? `<div class="hint">${esc(opts.hint)}</div>` : ''}
     </div>`;
 }
 
