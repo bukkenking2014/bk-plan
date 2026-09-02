@@ -80,14 +80,15 @@ function renderCover() {
 // 事業計画書 冒頭：黒字化のタイミングが一目でわかる月次棒グラフ（売上高／販売管理費／営業損益）
 function renderBreakEvenChartSection(result) {
   const months = [...result.pl1.months, ...result.pl2.months];
-  const revenue = [...result.pl1.totalRevenue, ...result.pl2.totalRevenue];
-  const sga = [...result.pl1.sgaTotal, ...result.pl2.sgaTotal];
-  const profit = [...result.pl1.operatingIncome, ...result.pl2.operatingIncome];
-  const chart = renderBreakEvenBarChart(months, revenue, sga, profit, { title: '' });
+  const monthlyProfit = [...result.pl1.operatingIncome, ...result.pl2.operatingIncome];
+  // 営業損益を月次で積み上げた累計額。累計が初めてプラスに転じる月が事業全体としての黒字化タイミング。
+  let running = 0;
+  const cumulativeProfit = monthlyProfit.map(v => (running += v));
+  const chart = renderBreakEvenBarChart(months, cumulativeProfit, { title: '' });
   return `
     <section class="report-section">
       <h2><span class="num">01</span> 黒字化のタイミング（月次24ヶ月）</h2>
-      <p class="small text-muted">売上高・販売管理費・営業損益を月ごとに色分けした棒グラフです。営業損益が初めてプラスに転じる月に目印を付けています。</p>
+      <p class="small text-muted">営業損益を毎月積み上げた累計額の棒グラフです。累計が初めてプラスに転じる月が、事業全体としての黒字化タイミングです。</p>
       ${chart}
     </section>`;
 }
@@ -126,20 +127,9 @@ function renderSimplePLSection(result) {
         <tfoot><tr><td>営業損益</td><td></td><td>${yenAcct(y.operatingIncome)}</td></tr></tfoot>
       </table>`;
   }
-  const pieYear1 = renderPieChart(
-    ['仲介手数料', 'リフォーム', '自社請負', '他社紹介'],
-    [s.year1.brokerage.amount, s.year1.reform.amount, s.year1.selfBuild.amount, s.year1.referral.amount],
-    { title: '売上割合（1年目）' }
-  );
-  const pieYear2 = renderPieChart(
-    ['仲介手数料', 'リフォーム', '自社請負', '他社紹介'],
-    [s.year2.brokerage.amount, s.year2.reform.amount, s.year2.selfBuild.amount, s.year2.referral.amount],
-    { title: '売上割合（2年目）' }
-  );
   return `
     <section class="report-section">
       <h2><span class="num">03</span> 簡易P&L（1年目・2年目）</h2>
-      <div class="pie-row">${pieYear1}${pieYear2}</div>
       ${block('1年目（稼働約半年）', s.year1)}
       ${block('2年目', s.year2)}
     </section>`;

@@ -355,6 +355,7 @@ function renderStepAd() {
     <div class="card">
       <h2>広告宣伝費・反響目標</h2>
       <p class="desc">目標件数・CPC・CVRからPPC予算とCPA（獲得単価）を自動算出します。ポータル等の追加広告費は任意で編集できます。</p>
+      <div id="preview-ad"></div>
       <div class="field-row">
         ${fieldNumber('目標件数（反響数/月）', 'ad.targetLeads', ad.targetLeads, { suffix: '件/月', hint: '目安：営業人数×15件' })}
         ${fieldLinkedValue('CPC（クリック単価）', num(appState.cpc), { suffix: '円', hint: '「ターゲットエリア」で入力済みの値です' })}
@@ -369,7 +370,6 @@ function renderStepAd() {
         ${fieldNumber('その他広告費①', 'ad.other1', ad.other1, { suffix: '円/月' })}
         ${fieldNumber('その他広告費②', 'ad.other2', ad.other2, { suffix: '円/月' })}
       </div>
-      <div id="preview-ad"></div>
     </div>`;
 }
 function previewAd(result) {
