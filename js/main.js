@@ -7,10 +7,8 @@ let activeView = 'wizard';
 
 const VIEW_RENDERERS = {
   wizard: renderWizard,
-  report: renderReport,
-  salary: renderSalaryTool,
-  incentive: renderIncentiveTool,
-  skill: renderSkillTool
+  schedule: renderScheduleView,
+  report: renderReport
 };
 
 function setActiveView(view) {

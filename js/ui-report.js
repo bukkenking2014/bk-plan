@@ -12,14 +12,11 @@ function renderReport() {
       <button class="btn-gold" id="printBtn">🖨 印刷 / PDFとして保存</button>
     </div>
     ${renderCover()}
-    ${renderScheduleSection()}
-    ${renderAreaSection(result)}
+    ${renderBreakEvenChartSection(result)}
     ${renderBreakEvenSection(result)}
     ${renderSimplePLSection(result)}
     ${renderMonthlyPLSection(result)}
     ${renderSynergySection(result)}
-    ${renderDecisionSummarySection(result)}
-    ${renderAppendixSection()}
     <div class="disclaimer-box">
       本シミュレーターは物件王「事業計画検討書」雛型の計算式をもとにした概算試算です。実際の契約・出店にあたっては、
       物件王担当者と内容をすり合わせのうえ確定させてください。全体スケジュールは営業日ベースの近似計算であり、実際の日程とは前後する場合があります。
@@ -80,35 +77,18 @@ function renderCover() {
     </div>`;
 }
 
-function renderAreaSection(result) {
-  const a = result.areas;
-  const rows = a.details.map((d, i) => {
-    const ar = appState.areas[i];
-    return `<tr>
-      <td>${esc(ar.name || 'エリア' + (i + 1))}</td>
-      <td>${num(ar.households)}世帯</td>
-      <td>${num(d.totalCount)}件</td>
-      <td>${man(d.feePerDealMan)}</td>
-      <td>${yen(d.revenueMan * 10000)}</td>
-    </tr>`;
-  }).join('');
+// 事業計画書 冒頭：黒字化のタイミングが一目でわかる月次棒グラフ（売上高／販売管理費／営業損益）
+function renderBreakEvenChartSection(result) {
+  const months = [...result.pl1.months, ...result.pl2.months];
+  const revenue = [...result.pl1.totalRevenue, ...result.pl2.totalRevenue];
+  const sga = [...result.pl1.sgaTotal, ...result.pl2.sgaTotal];
+  const profit = [...result.pl1.operatingIncome, ...result.pl2.operatingIncome];
+  const chart = renderBreakEvenBarChart(months, revenue, sga, profit, { title: '' });
   return `
     <section class="report-section">
-      <h2><span class="num">02</span> ターゲットエリア分析</h2>
-      <div class="table-scroll">
-        <table class="plain">
-          <thead><tr><th>エリア</th><th>世帯数</th><th>物件数</th><th>手数料/件（加重平均）</th><th>手数料合計</th></tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot><tr><td colspan="2">合計</td><td>${num(a.totalCount)}件</td><td>${man(a.avgFeeManOverall)}</td><td>${yen(a.totalRevenueMan * 10000)}</td></tr></tfoot>
-        </table>
-      </div>
-      <div class="stat-cards">
-        <div class="stat-card"><div class="label">物件種別構成比（土地／中古系／新築建売）</div><div class="value" style="font-size:1.1em">${pct(a.landRatio,0)} / ${pct(a.usedRatio,0)} / ${pct(a.newRatio,0)}</div></div>
-        <div class="stat-card"><div class="label">実勢手数料単価（PL計算用）</div><div class="value gold">${yen(a.feeRoundedYen)}</div></div>
-      </div>
-      <h3>エリア別・物件種別ごとの手数料と構成比</h3>
-      <p class="small text-muted">基本構成比（種別ごとの物件数比率）は入力に応じて自動再計算されます。構成比手数料＝手数料×基本構成比。</p>
-      ${a.details.map((d, i) => areaTypeBreakdownTable(appState.areas[i].name || 'エリア' + (i + 1), d, false)).join('')}
+      <h2><span class="num">01</span> 黒字化のタイミング（月次24ヶ月）</h2>
+      <p class="small text-muted">売上高・販売管理費・営業損益を月ごとに色分けした棒グラフです。営業損益が初めてプラスに転じる月に目印を付けています。</p>
+      ${chart}
     </section>`;
 }
 
@@ -117,14 +97,13 @@ function renderBreakEvenSection(result) {
   const st = result.staff;
   return `
     <section class="report-section">
-      <h2><span class="num">03</span> 損益分岐点と必要契約件数</h2>
+      <h2><span class="num">02</span> 損益分岐点と必要契約件数</h2>
       <div class="stat-cards">
         <div class="stat-card"><div class="label">人件費/年</div><div class="value">${yen(st.laborCostYear)}</div></div>
         <div class="stat-card"><div class="label">その他固定費/年</div><div class="value">${yen(result.otherCostsAnnual.grandTotal)}</div></div>
         <div class="stat-card"><div class="label">損益分岐点/年</div><div class="value gold">${yen(be.breakEvenAnnual)}</div></div>
         <div class="stat-card"><div class="label">損益分岐 必要契約数</div><div class="value">${num(be.requiredContractsYear)}<span class="small">件/年</span></div><div class="sub">月あたり ${num(be.requiredContractsMonth)}件</div></div>
-        <div class="stat-card"><div class="label">目標利益上乗せ後 必要契約数</div><div class="value">${num(be.targetContractsYear)}<span class="small">件/年</span></div><div class="sub">月あたり ${num(be.targetContractsMonth)}件</div></div>
-        <div class="stat-card"><div class="label">必要契約件数（採用値）</div><div class="value gold">${num(appState.confirmedContractsPerMonth)}<span class="small">件/月</span></div></div>
+        <div class="stat-card"><div class="label">目標契約件数（採用値）</div><div class="value gold">${num(be.targetContractsYear)}<span class="small">件/年</span></div><div class="sub">月あたり ${num(be.targetContractsMonth)}件</div></div>
       </div>
       <p class="small text-muted">目標契約件数の種別内訳（年間）：土地 ${num(be.targetLandCount)}件／中古系 ${num(be.targetUsedCount,1)}件／新築建売 ${num(be.targetNewCount,1)}件</p>
     </section>`;
@@ -159,7 +138,7 @@ function renderSimplePLSection(result) {
   );
   return `
     <section class="report-section">
-      <h2><span class="num">04</span> 簡易P&L（1年目・2年目）</h2>
+      <h2><span class="num">03</span> 簡易P&L（1年目・2年目）</h2>
       <div class="pie-row">${pieYear1}${pieYear2}</div>
       ${block('1年目（稼働約半年）', s.year1)}
       ${block('2年目', s.year2)}
@@ -176,7 +155,8 @@ function monthlyPLTable(pl) {
     ['storeRunning', '店舗経費（ランニング）'], ['incentive', 'インセンティブ']
   ];
   const monthHeader = pl.months.map(m => `<th>${m}</th>`).join('');
-  function row(label, arr, cls) { return `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(label)}</td>${arr.map(v => `<td>${yenAcct(v)}</td>`).join('')}<td>${yenAcct(sumAll(arr))}</td></tr>`; }
+  // 万円単位・整数表示にして列数の多い月次PLを極力コンパクトにする（表全体はヘッダーに単位：万円と明記）
+  function row(label, arr, cls) { return `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(label)}</td>${arr.map(v => `<td>${manUnitAcct(v)}</td>`).join('')}<td>${manUnitAcct(sumAll(arr))}</td></tr>`; }
   function countRow(label, arr) { return `<tr><td>${esc(label)}</td>${arr.map(v => `<td>${num(v)}件</td>`).join('')}<td>${num(sumAll(arr))}件</td></tr>`; }
   const lineRows = lineLabels.map(([key, label]) => row(label, pl.lines[key])).join('');
   // 研修費（成長投資費）＝研修費＋コンサル費（SV,PPC）を合算した1行で表示（入力を1項目に統一したのに合わせる）
@@ -184,14 +164,14 @@ function monthlyPLTable(pl) {
   // 営業外収益＝受取利息＋雑収入、営業外費用＝支払利息＋雑損失
   return `
     <div class="table-scroll">
-    <table class="plain">
-      <thead><tr><th>科目</th>${monthHeader}<th>合計</th></tr></thead>
+    <table class="plain pl-table-compact">
+      <thead><tr><th>科目（単位：万円）</th>${monthHeader}<th>合計</th></tr></thead>
       <tbody>
         ${countRow('仲介契約件数', pl.contracts)}
-        ${row('仲介手数料', pl.brokerageRevenue)}
-        ${row('リフォーム', pl.reformRevenue)}
-        ${row('自社請負', pl.selfBuildRevenue)}
-        ${row('他社紹介', pl.referralRevenue)}
+        ${row('仲介手数料', pl.brokerageRevenue, 'pl-row-brokerage')}
+        ${row('リフォーム', pl.reformRevenue, 'pl-row-construction')}
+        ${row('自社請負', pl.selfBuildRevenue, 'pl-row-construction')}
+        ${row('他社紹介', pl.referralRevenue, 'pl-row-referral')}
         ${row('売上高 合計', pl.totalRevenue, 'row-subtotal')}
         ${row('売上原価', pl.totalCogs)}
         ${row('売上総利益', pl.grossProfit, 'row-subtotal')}
@@ -215,8 +195,8 @@ function monthlyPLTable(pl) {
 function renderMonthlyPLSection(result) {
   return `
     <section class="report-section">
-      <h2><span class="num">05</span> 月次P&L</h2>
-      <p class="small text-muted">横にスクロールしても科目名は左端に固定表示されます。</p>
+      <h2><span class="num">04</span> 月次P&L</h2>
+      <p class="small text-muted">金額は万円単位です。横にスクロールしても科目名は左端に固定表示されます。仲介手数料・建築費（リフォーム／自社請負）・紹介料（他社紹介）は科目名を色分けしています。</p>
       <h3>PL（1年目）月次詳細</h3>
       ${monthlyPLTable(result.pl1)}
       <h3>PL（2年目以降）月次詳細</h3>
@@ -232,7 +212,7 @@ function renderSynergySection(result) {
   }
   return `
     <section class="report-section">
-      <h2><span class="num">06</span> 建築事業の利益イメージ</h2>
+      <h2><span class="num">05</span> 建築事業の利益イメージ</h2>
       <div class="table-scroll">
       <table class="plain">
         <thead><tr><th>事業</th><th>単価</th><th>利益率</th><th>不動産分配利益率</th><th>年間受注頻度</th><th>年間利益</th></tr></thead>
@@ -247,16 +227,18 @@ function renderSynergySection(result) {
     </section>`;
 }
 
-function renderScheduleSection() {
+// 「② 全体フロー・スケジュール」タブの独立ビュー
+function renderScheduleView() {
+  const main = document.getElementById('appMain');
   const diagram = renderGanttDiagram(GANTT_LANES, GANTT_ITEMS, 120, { title: '' });
-  return `
-    <section class="report-section">
-      <h2><span class="num">01</span> 全体フロー・スケジュール（研修①〜⑨）</h2>
-      <p class="small text-muted">加盟契約を起点として、①〜⑨の研修（丸番号）とその他マイルストーンをレーン別に配置した全体フローです。元テンプレートのガントチャートに暦日付の計算式は無いため、実際の日付は物件王担当者との打合せで確定してください。</p>
+  main.innerHTML = `
+    <div class="card">
+      <h2>全体フロー・スケジュール（研修①〜⑨）</h2>
+      <p class="desc">加盟契約を起点として、①〜⑨の研修（丸番号）とその他マイルストーンをレーン別に配置した全体フローです。元テンプレートのガントチャートに暦日付の計算式は無いため、実際の日付は物件王担当者との打合せで確定してください。</p>
       ${diagram}
       <p class="small text-muted">※①〜⑨の丸番号（またはそのチップ）をタップ／クリックすると、該当する研修・MTGの詳細がここに表示されます。</p>
       <div id="ganttDetailPanel" class="gantt-detail-panel"></div>
-    </section>`;
+    </div>`;
 }
 
 // 全体フローの①〜⑨チップがタップされた時に、該当する研修詳細（TRAINING_DETAILS）を
@@ -280,54 +262,3 @@ function showGanttDetail(no) {
   panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
-function renderDecisionSummarySection(result) {
-  const a = result.areas;
-  const bp = result.businessPlan;
-  const s = result.summary;
-  const areaNames = appState.areas.map(a => a.name).filter(Boolean).join('、');
-  return `
-    <section class="report-section">
-      <h2><span class="num">07</span> 決定事項サマリー【決定事項確認書】</h2>
-      <div class="stat-cards">
-        <div class="stat-card"><div class="label">ターゲットエリア</div><div class="value" style="font-size:1.1em">${esc(areaNames || '未設定')}</div></div>
-        <div class="stat-card"><div class="label">対象世帯数 合計</div><div class="value">${num(a.householdsTotal)}<span class="small">世帯</span></div></div>
-        <div class="stat-card"><div class="label">会員登録目標/月</div><div class="value">${num(bp.targetLeads)}<span class="small">件</span></div></div>
-        <div class="stat-card"><div class="label">広告予算/月</div><div class="value">${yen(bp.adBudgetMonthBaseTax)}</div></div>
-        <div class="stat-card"><div class="label">広告予算（オープンより半年）</div><div class="value">${yen(bp.adBudgetMonthBoostedTax)}</div></div>
-      </div>
-      <table class="plain">
-        <thead><tr><th>売上（粗利益）イメージ</th><th>初年度</th><th>次年度</th></tr></thead>
-        <tbody>
-          <tr><td>仲介手数料</td><td>${yen(s.year1.brokerage.amount)}</td><td>${yen(s.year2.brokerage.amount)}</td></tr>
-          <tr><td>リフォーム</td><td>${yen(s.year1.reform.amount)}</td><td>${yen(s.year2.reform.amount)}</td></tr>
-          <tr><td>自社請負</td><td>${yen(s.year1.selfBuild.amount)}</td><td>${yen(s.year2.selfBuild.amount)}</td></tr>
-          <tr><td>他社紹介</td><td>${yen(s.year1.referral.amount)}</td><td>${yen(s.year2.referral.amount)}</td></tr>
-        </tbody>
-      </table>
-      <p class="small text-muted">＊上記の広告予算を遅くとも営業開始日より投下する事によって反響目標達成に努める。現段階でエリアが未決定の場合、本ミーティングより10日以内に設定を行うものとします。</p>
-      <div class="signature-block no-print-avoid">
-        <div class="sig"><div class="signature-line"></div><div class="small">加盟店様　ご署名</div></div>
-        <div class="sig"><div class="signature-line"></div><div class="small">物件王　担当者</div></div>
-      </div>
-    </section>`;
-}
-
-function renderAppendixSection() {
-  const sl = appState.storeLayout;
-  const totalArea = sl.shelf + sl.meetingRoom + sl.kidsSpace + sl.restroom + sl.office + sl.kitchenette;
-  const layoutHtml = STORE_LAYOUT_SECTIONS.map(sec => `
-    <div class="appendix-item">
-      <div class="head"><span class="no">${esc(sec.no)}</span><strong>${esc(sec.name)}</strong><span class="small text-muted">必要最小面積：${num(sl[sec.key],1)}㎡</span></div>
-      ${sec.body.map(p => `<p>${esc(p)}</p>`).join('')}
-    </div>`).join('');
-
-  return `
-    <section class="report-section">
-      <h2><span class="num">付</span> 店舗内装（付録）</h2>
-      <details class="collapsible">
-        <summary>店舗内装：必要スペース（合計 ${num(totalArea,1)}㎡ ／ 約${Math.ceil(totalArea * TSUBO_FACTOR)}坪）</summary>
-        <p>物件王では、最低でも店舗の面積は15坪以上ある事が望ましいと考えています。内訳は下記の通りです。</p>
-        ${layoutHtml}
-      </details>
-    </section>`;
-}

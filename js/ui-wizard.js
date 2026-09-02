@@ -1,16 +1,15 @@
 /*
  * ui-wizard.js
- * 入力ウィザード（8ステップ）のレンダリング。
- * ステップ順は元Excelのシート順（社名→全体フロー→研修詳細→店舗内装→ターゲットエリア→
- * 免許→目標設定→事業検討→…）に合わせている。全体フロー・研修詳細は加盟店ごとの入力が
- * 不要な固定コンテンツのため、入力ステップとしては割愛し事業計画書の付録・冒頭に反映する。
+ * 入力ウィザード（7ステップ）のレンダリング。
+ * ステップ順は元Excelのシート順（社名→ターゲットエリア→免許→目標設定→事業検討→…）に
+ * 合わせている。全体フローは加盟店ごとの入力が不要な固定コンテンツのため、独立した
+ * 「②全体フロー・スケジュール」タブに表示する。店舗内装は入力項目自体を廃止した。
  */
 
 let wizardStepIndex = 0;
 
 const WIZARD_STEPS = [
   { id: 'basic', title: '基本情報', render: renderStepBasic },
-  { id: 'storeLayout', title: '店舗内装', render: renderStepStoreLayout },
   { id: 'areas', title: 'ターゲットエリア', render: renderStepAreas },
   { id: 'license', title: '免許状況', render: renderStepLicense },
   { id: 'goals', title: '目標設定（人員体制・給与）', render: renderStepGoals },
@@ -66,7 +65,6 @@ function renderWizardStep() {
 }
 
 function attachStepHandlers(stepId, container) {
-  if (stepId === 'storeLayout') attachStoreLayoutHandlers(container);
   if (stepId === 'areas') attachAreasHandlers(container);
   if (stepId === 'goals') attachStaffHandlers(container);
   if (stepId === 'synergy') attachSynergyHandlers(container);
@@ -109,7 +107,7 @@ function renderStepLicense() {
         </div>
         <div class="field">
           <div class="suffix-input">
-            <input type="number" data-path="license.items.${idx}.amount" value="${item.amount}">
+            <input type="text" inputmode="decimal" data-numeric="true" data-path="license.items.${idx}.amount" value="${esc(formatNum(item.amount))}" data-min="0" style="text-align:right" autocomplete="off">
             <span>円</span>
           </div>
         </div>
@@ -123,9 +121,9 @@ function renderStepLicense() {
         <label><input type="radio" name="lic" value="true" data-path="license.hasLicense" ${hasLicense ? 'checked' : ''}> 免許 有り</label>
         <label><input type="radio" name="lic" value="false" data-path="license.hasLicense" ${!hasLicense ? 'checked' : ''}> 免許 無し（新規取得）</label>
       </div>
+      <div id="preview-license"></div>
       <h3>免許取得・協会加入費用 内訳（編集可）</h3>
       ${rows}
-      <div id="preview-license"></div>
     </div>`;
 }
 function previewLicense(result) {
@@ -144,15 +142,8 @@ function previewLicense(result) {
 
 /* ===================== STEP 3: ターゲットエリア ===================== */
 function areaTypeFields(area, idx, key, label) {
-  return `
-    <div class="field">
-      <label>${esc(label)} 物件数</label>
-      <input type="number" data-path="areas.${idx}.${key}.count" value="${area[key].count}">
-    </div>
-    <div class="field">
-      <label>${esc(label)} 平均価格</label>
-      <div class="suffix-input"><input type="number" data-path="areas.${idx}.${key}.priceMan" value="${area[key].priceMan}"><span>万円</span></div>
-    </div>`;
+  return fieldNumber(`${label} 物件数`, `areas.${idx}.${key}.count`, area[key].count, { suffix: '件' })
+    + fieldNumber(`${label} 平均価格`, `areas.${idx}.${key}.priceMan`, area[key].priceMan, { suffix: '万円' });
 }
 function renderStepAreas() {
   const areas = appState.areas;
@@ -174,12 +165,12 @@ function renderStepAreas() {
     <div class="card">
       <h2>ターゲットエリア</h2>
       <p class="desc">活動エリアは複数登録できます。エリアごとの物件数・平均価格から仲介手数料単価を自動算出します。</p>
+      <div id="preview-areas"></div>
       <div class="field-row">
         ${fieldNumber('CPC（クリック単価）', 'cpc', appState.cpc, { suffix: '円' })}
       </div>
       <div class="repeat-list">${items}</div>
       <button class="btn-outline btn-sm" id="addAreaBtn" type="button">＋ エリアを追加</button>
-      <div id="preview-areas"></div>
     </div>`;
 }
 function attachAreasHandlers(container) {
@@ -195,6 +186,12 @@ function attachAreasHandlers(container) {
 function previewAreas(result) {
   const a = result.areas;
   const detailTables = a.details.map((d, i) => areaTypeBreakdownTable(appState.areas[i].name || 'エリア' + (i + 1), d, true)).join('');
+  const typeRows = PROPERTY_TYPES.map(t => `
+    <tr>
+      <td>${esc(PROPERTY_TYPE_LABELS[t])}</td>
+      <td>${num(a.typeTotals[t].count)}件</td>
+      <td>${man(a.typeTotals[t].amountMan)}</td>
+    </tr>`).join('');
   return `
     <div class="preview-panel">
       <h3>ターゲットエリア分析プレビュー</h3>
@@ -203,22 +200,28 @@ function previewAreas(result) {
         <div class="preview-stat"><div class="label">加重平均 手数料/件</div><div class="value">${man(a.avgFeeManOverall)}</div></div>
         <div class="preview-stat"><div class="label">土地／中古系／新築 構成比</div><div class="value" style="font-size:1em">${pct(a.landRatio,0)} / ${pct(a.usedRatio,0)} / ${pct(a.newRatio,0)}</div></div>
       </div>
+      <h4 style="margin:16px 0 4px;color:var(--color-gold);font-size:.92em">種別ごとの合計件数・金額（全エリア合計）</h4>
+      <table class="mini-table">
+        <thead><tr><th>種別</th><th>合計件数</th><th>合計金額</th></tr></thead>
+        <tbody>${typeRows}</tbody>
+      </table>
       <p class="small" style="color:#fff;opacity:.8;margin:14px 0 4px">物件種別ごとの手数料・基本構成比（数式に連動して自動更新されます）</p>
       ${detailTables}
     </div>`;
 }
 
 /* ===================== STEP 4: 目標設定（人員体制・給与を含む） ===================== */
-function staffGroupHtml(groupKey, groupLabel, list) {
+function staffGroupHtml(groupKey, groupLabel, list, note) {
   const items = list.map((p, idx) => `
     <div class="repeat-item" style="padding:10px 14px;">
       ${list.length > 1 ? `<button class="remove-btn" data-remove-staff="${groupKey}:${idx}">✕</button>` : ''}
       <div class="field-row" style="margin-bottom:0">
-        ${fieldNumber(`${groupLabel}${list.length > 1 ? idx + 1 : ''} 給与`, `staff.${groupKey}.${idx}.salary`, p.salary, { suffix: '円/月' })}
+        ${fieldNumber(`${groupLabel}${list.length > 1 ? idx + 1 : ''} 給与`, `staff.${groupKey}.${idx}.salary`, p.salary, { suffix: '円/月', narrow: true })}
       </div>
     </div>`).join('');
   return `
     <h4 style="margin:14px 0 6px;font-size:.92em;color:var(--color-ink-soft)">${esc(groupLabel)}</h4>
+    ${note ? `<p class="small text-muted" style="margin:-2px 0 8px">${esc(note)}</p>` : ''}
     <div class="repeat-list">${items}</div>
     <button class="btn-outline btn-sm" data-add-staff="${groupKey}" type="button">＋ ${esc(groupLabel)}を追加</button>
   `;
@@ -247,22 +250,21 @@ function renderStepGoals() {
     <div class="card">
       <h2>目標設定</h2>
       <h3>【 人員体制・給与 】</h3>
-      ${staffGroupHtml('managers', '店長', s.managers)}
+      ${staffGroupHtml('managers', '不動産業務経験者', s.managers, '※3年以上の実務経験を想定しています')}
       ${staffGroupHtml('agents', 'エージェント', s.agents)}
       ${staffGroupHtml('supports', 'サポート', s.supports)}
       <hr class="section-divider">
       <h3>【 対応する事業の設定 】</h3>
       <p class="desc" style="margin-top:-6px">建築事業として対応する事業を選択してください（単価・利益率は次の「建築事業」ステップで編集できます）。</p>
       <div class="toggle-row"><input type="checkbox" data-path="synergy.reform.enabled" ${sy.reform.enabled ? 'checked' : ''}> リフォーム事業</div>
+      <p class="small text-muted" style="margin:-4px 0 10px 26px">仲介のお客様の中古物件購入に合わせたリフォーム提案を自社で請け負う事業です。仲介と親和性が高く、比較的取り組みやすい建築シナジーです。</p>
       <div class="toggle-row"><input type="checkbox" data-path="synergy.selfBuild.enabled" ${sy.selfBuild.enabled ? 'checked' : ''}> 新築住宅事業（自社請負）</div>
+      <p class="small text-muted" style="margin:-4px 0 10px 26px">土地を購入されるお客様に対して、自社（またはグループ会社）で新築住宅の建築を請け負う事業です。単価が大きい分、施工体制の準備が必要です。</p>
       <div class="toggle-row"><input type="checkbox" data-path="synergy.referral.enabled" ${sy.referral.enabled ? 'checked' : ''}> 他社建築紹介</div>
+      <p class="small text-muted" style="margin:-4px 0 10px 26px">自社で建築を請け負わず、提携する建築会社へお客様を紹介し、紹介料を受け取る事業です。施工体制を持たずに建築シナジーを得られます。</p>
       <hr class="section-divider">
       <div class="field-row">
         ${fieldNumber('2年目以降の年間営業利益目標', 'targetProfitAnnual', appState.targetProfitAnnual, { suffix: '円/年', hint: '損益分岐点に上乗せする目標利益（任意、0でも可）' })}
-      </div>
-      <hr class="section-divider">
-      <div class="field-row">
-        ${fieldNumber('必要契約件数/月', 'confirmedContractsPerMonth', appState.confirmedContractsPerMonth, { suffix: '件/月', hint: '閑散期も均した月平均件数。事業計画書のPLはこの値をもとに作成されます。' })}
       </div>
       <div id="preview-goals"></div>
     </div>`;
@@ -271,11 +273,9 @@ function previewGoals(result) {
   const be = result.breakEven;
   const st = result.staff;
   const oc = result.otherCostsAnnual;
-  const diff = appState.confirmedContractsPerMonth - be.targetContractsMonth;
-
-  // 元Excel「目標設定」シートの人員リスト（店長→エージェント→サポートの順）
+  // 元Excel「目標設定」シートの人員リスト（不動産業務経験者→エージェント→サポートの順）
   const staffRows = [];
-  (appState.staff.managers || []).forEach((p, i) => staffRows.push({ label: `店長（経験者）${appState.staff.managers.length > 1 ? i + 1 : ''}`, salary: nonNeg(p.salary) }));
+  (appState.staff.managers || []).forEach((p, i) => staffRows.push({ label: `不動産業務経験者${appState.staff.managers.length > 1 ? i + 1 : ''}`, salary: nonNeg(p.salary) }));
   (appState.staff.agents || []).forEach((p, i) => staffRows.push({ label: `エージェント${appState.staff.agents.length > 1 ? i + 1 : ''}`, salary: nonNeg(p.salary) }));
   (appState.staff.supports || []).forEach((p, i) => staffRows.push({ label: `サポート${appState.staff.supports.length > 1 ? i + 1 : ''}`, salary: nonNeg(p.salary) }));
   const rowCount = Math.max(staffRows.length, 1);
@@ -344,7 +344,6 @@ function previewGoals(result) {
           </table>
           </div>
         </div>
-        <p class="small" style="color:#fff;opacity:.85;margin:10px 0 0">必要契約件数/月（入力値：${num(appState.confirmedContractsPerMonth)}件）と目標契約件数/月との差：<strong style="color:${diff < 0 ? '#e2726a' : '#8fd6ac'}">${diff >= 0 ? '+' : ''}${num(diff)}件</strong></p>
       </div>
     </div>`;
 }
@@ -445,65 +444,6 @@ function previewSynergy(result) {
         ${row('他社紹介', bp.referral)}
       </tbody>
     </table>`;
-}
-
-/* ===================== 店舗内装（必要面積） ===================== */
-function renderStepStoreLayout() {
-  const sl = appState.storeLayout;
-  const items = STORE_LAYOUT_SECTIONS.map(sec => {
-    const value = sl[sec.key];
-    const tsubo = value * TSUBO_FACTOR;
-    return `
-      <div class="repeat-item">
-        <div class="repeat-item-title">${esc(sec.no)} ${esc(sec.name)}</div>
-        <div class="field-row" style="margin-bottom:6px">
-          ${fieldNumber('面積', `storeLayout.${sec.key}`, value, { suffix: '㎡', step: '0.1' })}
-          <div class="field">
-            <label>坪換算</label>
-            <div class="suffix-input"><span style="padding:9px 0" data-tsubo-for="${sec.key}">${num(tsubo, 2)}</span><span>坪</span></div>
-          </div>
-          <div class="field">
-            <label>必要最小面積</label>
-            <div class="suffix-input"><span style="padding:9px 0">${num(sec.defaultArea, 1)}</span><span>㎡</span></div>
-          </div>
-        </div>
-        <details class="collapsible">
-          <summary>説明を見る</summary>
-          ${sec.body.map(p => `<p class="small">${esc(p)}</p>`).join('')}
-        </details>
-      </div>`;
-  }).join('');
-  return `
-    <div class="card">
-      <h2>店舗内装</h2>
-      <p class="desc">物件王では、最低でも店舗の面積は15坪以上ある事が望ましいとしています。各スペースの必要面積を入力してください（事業計画書の付録にも掲載されます）。必要最小面積はExcel雛型に記載の目安値です。</p>
-      <div class="repeat-list">${items}</div>
-      <div id="preview-storeLayout"></div>
-    </div>`;
-}
-function attachStoreLayoutHandlers(container) {
-  container.querySelectorAll('input[data-path^="storeLayout."]').forEach(inp => {
-    inp.addEventListener('input', () => {
-      const key = inp.getAttribute('data-path').split('.')[1];
-      const span = container.querySelector(`[data-tsubo-for="${key}"]`);
-      if (span) {
-        const v = inp.value === '' ? 0 : parseFloat(inp.value);
-        span.textContent = num((isNaN(v) ? 0 : v) * TSUBO_FACTOR, 2);
-      }
-    });
-  });
-}
-function previewStoreLayout() {
-  const sl = appState.storeLayout;
-  const total = sl.shelf + sl.meetingRoom + sl.kidsSpace + sl.restroom + sl.office + sl.kitchenette;
-  return `
-    <div class="preview-panel">
-      <h3>必要面積プレビュー</h3>
-      <div class="preview-grid">
-        <div class="preview-stat"><div class="label">必要面積合計</div><div class="value">${num(total,1)}<small>㎡</small></div></div>
-        <div class="preview-stat"><div class="label">目安坪数</div><div class="value">約${Math.ceil(total * TSUBO_FACTOR)}<small>坪</small></div></div>
-      </div>
-    </div>`;
 }
 
 /* ===================== STEP 7: その他運営コスト ===================== */
@@ -618,6 +558,6 @@ function previewCosts(result) {
 }
 
 const previewRenderers = {
-  storeLayout: previewStoreLayout, license: previewLicense, areas: previewAreas,
+  license: previewLicense, areas: previewAreas,
   goals: previewGoals, ad: previewAd, synergy: previewSynergy, costs: previewCosts
 };

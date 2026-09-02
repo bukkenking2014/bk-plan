@@ -5,11 +5,11 @@
   --color-ink: #161b26;
   --color-ink-soft: #5b6472;
   --color-line: #e1e4ea;
-  --color-navy: #14224a;
-  --color-navy-2: #2451c4;
-  --color-gold: #e2912b;
-  --color-gold-strong: #b96f14;
-  --color-gold-soft: #fbe8cc;
+  --color-navy: #05968c;
+  --color-navy-2: #04756d;
+  --color-gold: #f99f00;
+  --color-gold-strong: #c97e00;
+  --color-gold-soft: #fef0d9;
   --color-ok: #1a9c6b;
   --color-ok-bg: #e1f6ec;
   --color-warn: #d8483f;
@@ -24,8 +24,10 @@
   --lane-4: #5b7fc4;
   --shadow: 0 2px 16px rgba(20, 34, 74, 0.07);
   --radius: 12px;
-  --font-serif: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+  /* フォントはゴシック体に統一（--font-serifも同じ書体を指す別名として残す。
+     過去にserif指定していた箇所を個別に洗い出さずに済むようにするための互換用エイリアス） */
   --font-sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "YuGothic", "Noto Sans JP", sans-serif;
+  --font-serif: var(--font-sans);
   color-scheme: light;
 }
 
@@ -37,11 +39,11 @@
     --color-ink: #edf0f5;
     --color-ink-soft: #98a2b5;
     --color-line: #242b3d;
-    --color-navy: #16233f;
-    --color-navy-2: #5b8cf5;
-    --color-gold: #f0a94a;
-    --color-gold-strong: #f6c583;
-    --color-gold-soft: #2c2210;
+    --color-navy: #0bafa3;
+    --color-navy-2: #3ecdc0;
+    --color-gold: #ffb545;
+    --color-gold-strong: #ffd28f;
+    --color-gold-soft: #332411;
     --color-ok: #4fc793;
     --color-ok-bg: #123425;
     --color-warn: #e2726a;
@@ -65,11 +67,11 @@
   --color-ink: #edf0f5;
   --color-ink-soft: #98a2b5;
   --color-line: #242b3d;
-  --color-navy: #16233f;
-  --color-navy-2: #5b8cf5;
-  --color-gold: #f0a94a;
-  --color-gold-strong: #f6c583;
-  --color-gold-soft: #2c2210;
+  --color-navy: #0bafa3;
+  --color-navy-2: #3ecdc0;
+  --color-gold: #ffb545;
+  --color-gold-strong: #ffd28f;
+  --color-gold-soft: #332411;
   --color-ok: #4fc793;
   --color-ok-bg: #123425;
   --color-warn: #e2726a;
@@ -92,11 +94,11 @@
   --color-ink: #161b26;
   --color-ink-soft: #5b6472;
   --color-line: #e1e4ea;
-  --color-navy: #14224a;
-  --color-navy-2: #2451c4;
-  --color-gold: #e2912b;
-  --color-gold-strong: #b96f14;
-  --color-gold-soft: #fbe8cc;
+  --color-navy: #05968c;
+  --color-navy-2: #04756d;
+  --color-gold: #f99f00;
+  --color-gold-strong: #c97e00;
+  --color-gold-soft: #fef0d9;
   --color-ok: #1a9c6b;
   --color-ok-bg: #e1f6ec;
   --color-warn: #d8483f;
@@ -120,7 +122,7 @@ html, body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.7;
   font-variant-numeric: tabular-nums;
 }
@@ -373,6 +375,18 @@ table.plain tr.row-highlight td { font-weight: 700; background: var(--color-gold
 table.plain tr.row-final td { font-weight: 700; background: var(--color-gold); color: #201400; }
 .table-scroll table.plain tr.row-final td:first-child { background: var(--color-gold); color: #201400; }
 table.plain tr.row-final td .neg { color: #6e1c14; }
+
+/* 月次PL：列数が多いため、単位を万円にした上でさらにコンパクトな書式にして
+   横スクロール無しでも収まりやすくする（フォント・余白を通常のtable.plainより詰める） */
+table.plain.pl-table-compact { font-size: .76em; }
+table.plain.pl-table-compact th, table.plain.pl-table-compact td { padding: 4px 6px; }
+
+/* 月次PL：仲介手数料・建築費（リフォーム／自社請負）・紹介料（他社紹介）を科目名の色で区別 */
+table.plain tr.pl-row-brokerage td:first-child { color: var(--color-navy-2); font-weight: 700; }
+table.plain tr.pl-row-construction td:first-child { color: var(--color-gold-strong); font-weight: 700; }
+table.plain tr.pl-row-referral td:first-child { color: var(--color-ok); font-weight: 700; }
+:root[data-theme="dark"] table.plain tr.pl-row-brokerage td:first-child { color: var(--color-gold); }
+:root[data-theme="dark"] table.plain tr.pl-row-construction td:first-child { color: var(--color-gold-strong); }
 
 .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap: 14px; margin: 16px 0; }
 .stat-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 8px; padding: 16px; box-shadow: var(--shadow); }

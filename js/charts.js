@@ -104,6 +104,84 @@ function renderLineChart(months, series, opts) {
 }
 
 /*
+ * 黒字化タイミング棒グラフ（月次24ヶ月：売上高／販売管理費／営業損益を色分けした棒グラフ）
+ * 事業計画書の冒頭で「いつ黒字化するか」が一目でわかるようにするための専用チャート。
+ * months: 24個のラベル  revenue/sga/profit: number[24]（円）
+ */
+function renderBreakEvenBarChart(months, revenue, sga, profit, opts) {
+  opts = opts || {};
+  const W = 1360, H = 340;
+  const padL = 64, padR = 20, padT = 24, padB = 40;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const allValues = [...revenue, ...sga, ...profit];
+  const dataMin = Math.min(0, ...allValues);
+  const dataMax = Math.max(0, ...allValues);
+  const { ticks, min, max } = niceTicks(dataMin, dataMax, 5);
+  const y = v => padT + plotH - ((v - min) / (max - min)) * plotH;
+  const yZero = y(0);
+
+  const n = months.length;
+  const groupW = plotW / n;
+  const barGap = 1.5;
+  const barW = Math.max(2, (groupW - barGap * 4) / 3);
+
+  const series = [
+    { label: '売上高', color: 'var(--chart-series-1)', values: revenue },
+    { label: '販売管理費', color: 'var(--chart-series-2)', values: sga },
+    { label: '営業損益', color: 'var(--chart-series-3)', values: profit }
+  ];
+
+  const gridLines = ticks.map(t => `
+    <line x1="${padL}" y1="${y(t)}" x2="${W - padR}" y2="${y(t)}" stroke="${CHART_COLORS.grid}" stroke-width="1" />
+    <text x="${padL - 8}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="${CHART_COLORS.text}" font-variant-numeric="tabular-nums">${fmtAxisYen(t)}</text>
+  `).join('');
+
+  const bars = months.map((mo, ci) => {
+    const groupX = padL + ci * groupW + (groupW - (barW * 3 + barGap * 2)) / 2;
+    const catBars = series.map((s, si) => {
+      const v = s.values[ci];
+      const barX = groupX + si * (barW + barGap);
+      const barY = v >= 0 ? y(v) : yZero;
+      const barH = Math.max(0.5, Math.abs(y(v) - yZero));
+      return `<rect x="${barX}" y="${barY}" width="${barW}" height="${barH}" fill="${s.color}"><title>${esc(mo)} ${esc(s.label)}: ${yenAcctText(v)}</title></rect>`;
+    }).join('');
+    return catBars;
+  }).join('');
+
+  const xTickIdx = months.map((_, i) => i).filter(i => i % 3 === 0 || i === n - 1);
+  const xLabels = xTickIdx.map(i => `<text x="${padL + i * groupW + groupW / 2}" y="${H - padB + 18}" text-anchor="middle" font-size="11" fill="${CHART_COLORS.text}">${esc(months[i])}</text>`).join('');
+
+  // 黒字化（営業損益がプラスに転じる）最初の月にマーカーを付ける
+  const breakEvenIdx = profit.findIndex(v => v > 0);
+  const breakEvenMarker = breakEvenIdx >= 0 ? `
+    <line x1="${padL + breakEvenIdx * groupW + groupW / 2}" y1="${padT}" x2="${padL + breakEvenIdx * groupW + groupW / 2}" y2="${H - padB}" stroke="var(--color-warn)" stroke-width="1.5" stroke-dasharray="4,3" />
+    <text x="${padL + breakEvenIdx * groupW + groupW / 2}" y="${padT - 8}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--color-warn)">黒字化：${esc(months[breakEvenIdx])}</text>` : '';
+
+  const zeroLine = `<line x1="${padL}" y1="${yZero}" x2="${W - padR}" y2="${yZero}" stroke="${CHART_COLORS.textStrong}" stroke-width="1.2" />`;
+
+  const legend = `
+    <div class="chart-legend">
+      ${series.map(s => `<span class="chart-legend-item"><span class="chart-legend-swatch" style="background:${s.color}"></span>${esc(s.label)}</span>`).join('')}
+    </div>`;
+
+  return `
+    <div class="chart-block">
+      ${opts.title ? `<h4 class="chart-title">${esc(opts.title)}</h4>` : ''}
+      <div class="table-scroll">
+        <svg viewBox="0 0 ${W} ${H}" class="chart-svg" style="min-width:${W}px" role="img" aria-label="${esc(opts.title || '')}">
+          ${gridLines}
+          ${bars}
+          ${zeroLine}
+          ${breakEvenMarker}
+          ${xLabels}
+        </svg>
+      </div>
+      ${legend}
+    </div>`;
+}
+
+/*
  * 年比較の棒グラフ（グループ化）
  * categories: ['売上高','販売管理費','営業損益']  series: [{label,color,values:number[categories.length]}]
  */

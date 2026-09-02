@@ -35,6 +35,19 @@ function manFloor(n) {
   if (n === null || n === undefined || isNaN(n)) return '―';
   return (Math.floor(n * 10) / 10).toLocaleString('ja-JP') + '万円';
 }
+// 月次PLなど列数が多い表向け：万円単位・整数（小数なし）・「万円」の文字は付けず数字のみ
+// （表の見出しに単位：万円と明記し、セル自体は数字だけにして横幅を詰める）
+function manUnit(n) {
+  if (n === null || n === undefined || isNaN(n)) return '―';
+  return Math.round(n / 10000).toLocaleString('ja-JP');
+}
+// 会計表記版（マイナスは△表示）
+function manUnitAcct(n) {
+  if (n === null || n === undefined || isNaN(n)) return '―';
+  const r = Math.round(n / 10000);
+  if (r < 0) return `<span class="neg">△${Math.abs(r).toLocaleString('ja-JP')}</span>`;
+  return r.toLocaleString('ja-JP');
+}
 function num(n, digits) {
   if (n === null || n === undefined || isNaN(n)) return '―';
   return Number(n).toLocaleString('ja-JP', { maximumFractionDigits: digits || 0, minimumFractionDigits: digits || 0 });
@@ -46,6 +59,20 @@ function pct(n, digits) {
 function esc(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// カンマ区切りの数値入力欄（fieldNumber）用：表示用フォーマット／パース
+function formatNum(v) {
+  if (v === '' || v === null || v === undefined) return '';
+  const n = Number(v);
+  if (isNaN(n)) return '';
+  return n.toLocaleString('ja-JP', { maximumFractionDigits: 6 });
+}
+function parseNum(raw) {
+  if (raw === null || raw === undefined) return NaN;
+  const cleaned = String(raw).replace(/,/g, '').trim();
+  if (cleaned === '' || cleaned === '-') return NaN;
+  return parseFloat(cleaned);
 }
 
 // data-path属性を持つ入力要素からappStateへ値を反映する委譲ハンドラをコンテナに設置
@@ -81,6 +108,21 @@ function attachBindings(container, onChange) {
       if (onChange) onChange();
     }
   });
+  // カンマ区切り数値入力（data-numeric="true"）：入力中は生の文字列のまま（カーソル位置を
+  // 崩さないため）、フォーカスが外れた時点でカンマ区切り表示に整形し直す。
+  // blurはバブリングしないため委譲にはfocusoutを使う。
+  container.addEventListener('focusout', e => {
+    const el = e.target;
+    if (!(el && el.dataset && el.dataset.numeric === 'true')) return;
+    const parsed = parseNum(el.value);
+    let value = isNaN(parsed) ? 0 : parsed;
+    const minAttr = el.getAttribute('data-min');
+    if (minAttr !== null && minAttr !== '') {
+      const min = parseFloat(minAttr);
+      if (!isNaN(min) && value < min) value = min;
+    }
+    el.value = formatNum(value);
+  });
 }
 
 function commitInput_(container, el, onChange) {
@@ -88,18 +130,20 @@ function commitInput_(container, el, onChange) {
   if (!path) return;
   let value;
   if (el.type === 'checkbox') value = el.checked;
-  else if (el.type === 'number') {
-    value = el.value === '' ? 0 : parseFloat(el.value);
-    if (!isNaN(value) && el.min !== '') {
-      const min = parseFloat(el.min);
-      if (!isNaN(min) && value < min) { value = min; el.value = min; }
+  else if (el.dataset && el.dataset.numeric === 'true') {
+    const parsed = parseNum(el.value);
+    value = isNaN(parsed) ? 0 : parsed;
+    const minAttr = el.getAttribute('data-min');
+    if (minAttr !== null && minAttr !== '') {
+      const min = parseFloat(minAttr);
+      if (!isNaN(min) && value < min) value = min;
     }
   }
   else value = el.value;
   setPath(appState, path, value);
   saveState();
   // 月⇄年など「もう一方の単位換算」表示を持つ項目があればライブ更新する
-  if (el.type === 'number') {
+  if (el.dataset && el.dataset.numeric === 'true') {
     container.querySelectorAll(`[data-dual-source="${path}"]`).forEach(d => {
       const factor = parseFloat(d.getAttribute('data-dual-factor'));
       const label = d.getAttribute('data-dual-label') || '';
@@ -111,6 +155,7 @@ function commitInput_(container, el, onChange) {
 
 // opts.dual: { label, factor } を渡すと、月⇄年など「もう一方の単位換算」を
 // ライブ更新のヒント表示として追加する（例: 円/月の入力に対し年換算を表示、factor=12）。
+// opts.narrow: trueで入力欄の最大幅を狭くする（給与など横に広すぎる項目向け）。
 function fieldNumber(label, path, value, opts) {
   opts = opts || {};
   const suffix = opts.suffix || '';
@@ -120,10 +165,10 @@ function fieldNumber(label, path, value, opts) {
   const min = opts.min === null ? null : (opts.min !== undefined ? opts.min : 0);
   const dual = opts.dual ? `<div class="hint" data-dual-source="${path}" data-dual-factor="${opts.dual.factor}" data-dual-label="${esc(opts.dual.label)}">${esc(opts.dual.label)}${yen((Number(value) || 0) * opts.dual.factor)}</div>` : '';
   return `
-    <div class="field">
+    <div class="field"${opts.narrow ? ' style="max-width:180px"' : ''}>
       <label>${esc(label)}</label>
       <div class="suffix-input">
-        <input type="number" data-path="${path}" value="${value}" step="${opts.step || 'any'}" ${min !== null ? `min="${min}"` : ''}>
+        <input type="text" inputmode="decimal" data-numeric="true" data-path="${path}" value="${esc(formatNum(value))}" style="text-align:right" ${min !== null ? `data-min="${min}"` : ''} autocomplete="off">
         ${suffix ? `<span>${esc(suffix)}</span>` : ''}
       </div>
       ${hint}

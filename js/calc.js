@@ -113,9 +113,18 @@ function computeAreas(state) {
   // 事業検討!E4 = ROUNDDOWN(ターゲットエリア!AV6*10000, -3)（実績PL計算用）
   const feeRoundedYen = roundDown(feeRawYen, -3);
 
+  // 種別（土地／中古戸建／新築戸建／マンション）ごとの全エリア合計件数・金額
+  const typeTotals = {};
+  PROPERTY_TYPES.forEach(t => {
+    typeTotals[t] = {
+      count: details.reduce((s, d) => s + d.counts[t], 0),
+      amountMan: details.reduce((s, d) => s + d.counts[t] * d.fees[t], 0)
+    };
+  });
+
   return {
     details, totalCount, totalRevenueMan, avgFeeManOverall,
-    landRatio, usedRatio, newRatio, householdsTotal,
+    landRatio, usedRatio, newRatio, householdsTotal, typeTotals,
     feeRawYen, feeRoundedYen
   };
 }
@@ -513,6 +522,10 @@ function runFullCalculation(state) {
   const license = computeLicense(state);
   const otherCostsAnnual = computeOtherCostsAnnual(state, staff);
   const breakEven = computeBreakEven(state, staff, areas, otherCostsAnnual);
+  // 必要契約件数/月は目標契約件数/月（損益分岐点＋利益目標から自動算出）へ常に同期させる
+  // （旧仕様の手動入力欄は廃止）。otherCostsAnnual側の租税公課は前回計算時点の値を参照する
+  // 形になるが、循環参照を避けるための割り切りであり、再計算のたびに収束する。
+  state.confirmedContractsPerMonth = breakEven.targetContractsMonth;
   const businessPlan = computeBusinessPlan(state, staff, areas, breakEven, license);
   const pl1 = computePL1(state, staff, areas, otherCostsAnnual, businessPlan);
   const pl2 = computePL2(state, staff, areas, otherCostsAnnual, businessPlan, pl1.closingAssets);
