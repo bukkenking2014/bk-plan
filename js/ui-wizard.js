@@ -152,7 +152,7 @@ function renderStepAreas() {
       ${areas.length > 1 ? `<button class="remove-btn" data-remove-area="${idx}">✕</button>` : ''}
       <div class="repeat-item-title">エリア ${idx + 1}</div>
       <div class="field-row">
-        ${fieldText('エリア名', `areas.${idx}.name`, a.name)}
+        ${fieldText('エリア名', `areas.${idx}.name`, a.name, { narrow: true })}
         ${fieldNumber('世帯数', `areas.${idx}.households`, a.households, { suffix: '世帯' })}
       </div>
       <div class="field-row">${areaTypeFields(a, idx, 'land', '土地')}</div>

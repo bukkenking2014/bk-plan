@@ -189,10 +189,11 @@ function fieldLinkedValue(label, formattedValue, opts) {
     </div>`;
 }
 
+// opts.narrow: trueで入力欄の幅を狭くする（短い名称のみを入れる項目向け）。
 function fieldText(label, path, value, opts) {
   opts = opts || {};
   return `
-    <div class="field">
+    <div class="field${opts.narrow ? ' field-narrow' : ''}">
       <label>${esc(label)}</label>
       <input type="text" data-path="${path}" value="${esc(value)}" placeholder="${esc(opts.placeholder || '')}" autocomplete="off">
       ${opts.hint ? `<div class="hint">${esc(opts.hint)}</div>` : ''}

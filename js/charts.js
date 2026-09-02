@@ -162,15 +162,13 @@ function renderBreakEvenBarChart(months, cumulativeProfit, opts) {
   return `
     <div class="chart-block">
       ${opts.title ? `<h4 class="chart-title">${esc(opts.title)}</h4>` : ''}
-      <div class="table-scroll">
-        <svg viewBox="0 0 ${W} ${H}" class="chart-svg" style="min-width:${W}px" role="img" aria-label="${esc(opts.title || '')}">
-          ${gridLines}
-          ${bars}
-          ${zeroLine}
-          ${breakEvenMarker}
-          ${xLabels}
-        </svg>
-      </div>
+      <svg viewBox="0 0 ${W} ${H}" class="chart-svg" role="img" aria-label="${esc(opts.title || '')}">
+        ${gridLines}
+        ${bars}
+        ${zeroLine}
+        ${breakEvenMarker}
+        ${xLabels}
+      </svg>
       ${legend}
     </div>`;
 }

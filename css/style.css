@@ -243,6 +243,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
    6桁の金額（例：300,000）＋単位表記が入っても数字が見切れないよう、
    幅を詰める分、この欄だけ文字サイズ・内側余白も少し小さくする。 */
 .field.field-numeric { flex: 0 1 135px; min-width: 100px; max-width: 135px; }
+/* エリア名など、短い名称だけを入れるテキスト欄の幅も狭くする */
+.field.field-narrow { flex: 0 1 160px; min-width: 120px; max-width: 160px; }
 .field label { font-size: .82em; color: var(--color-ink-soft); font-weight: 600; letter-spacing: .01em; }
 .field .hint { font-size: .75em; color: var(--color-ink-soft); opacity: .8; }
 input[type=text], input[type=number], input[type=date], select, textarea {
@@ -399,10 +401,11 @@ table.plain tr.pl-row-referral td:first-child { color: var(--color-ok); font-wei
 :root[data-theme="dark"] table.plain tr.pl-row-brokerage td:first-child { color: var(--color-gold); }
 :root[data-theme="dark"] table.plain tr.pl-row-construction td:first-child { color: var(--color-gold-strong); }
 
-.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap: 14px; margin: 16px 0; }
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 14px; margin: 16px 0; }
 .stat-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 8px; padding: 16px; box-shadow: var(--shadow); }
 .stat-card .label { font-size: .78em; color: var(--color-ink-soft); }
-.stat-card .value { font-size: 1.5em; font-weight: 700; color: var(--color-ink); font-family: var(--font-serif); }
+/* 金額など桁数の多い値でも「円」だけ折り返さないよう、1行に収まる文字サイズにする */
+.stat-card .value { font-size: 1.3em; font-weight: 700; color: var(--color-ink); font-family: var(--font-serif); white-space: nowrap; }
 .stat-card .value.gold { color: var(--color-gold-strong); }
 :root[data-theme="dark"] .stat-card .value.gold { color: var(--color-gold); }
 .stat-card .sub { font-size: .76em; color: var(--color-ink-soft); margin-top: 2px; }
