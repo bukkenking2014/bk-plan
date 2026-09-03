@@ -133,13 +133,15 @@ function renderBreakEvenBarChart(months, cumulativeProfit, opts) {
     <text x="${padL - 8}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="${CHART_COLORS.text}" font-variant-numeric="tabular-nums">${fmtAxisYen(t)}</text>
   `).join('');
 
+  // タップ／クリックした棒の金額を下の表示欄に出す（<title>によるホバー表示はタッチ端末では
+  // 出ないことが多いため、確実に見えるようクリックイベントで明示的に表示する）。
   const bars = months.map((mo, i) => {
     const v = cumulativeProfit[i];
     const barX = padL + i * groupW + (groupW - barW) / 2;
     const barY = v >= 0 ? y(v) : yZero;
     const barH = Math.max(0.5, Math.abs(y(v) - yZero));
     const color = v >= 0 ? posColor : negColor;
-    return `<rect x="${barX}" y="${barY}" width="${barW}" height="${barH}" fill="${color}"><title>${esc(mo)} 営業損益累計: ${yenAcctText(v)}</title></rect>`;
+    return `<rect class="be-bar" x="${barX}" y="${barY}" width="${barW}" height="${barH}" fill="${color}" style="cursor:pointer" onclick="showBreakEvenBarValue('${esc(mo)}', '${yenAcctText(v).replace(/'/g, "\\'")}')"><title>${esc(mo)} 営業損益累計: ${yenAcctText(v)}</title></rect>`;
   }).join('');
 
   const xTickIdx = months.map((_, i) => i).filter(i => i % 3 === 0 || i === n - 1);
@@ -170,7 +172,15 @@ function renderBreakEvenBarChart(months, cumulativeProfit, opts) {
         ${xLabels}
       </svg>
       ${legend}
+      <div id="breakEvenBarValue" class="chart-tap-value">棒をタップ／クリックすると、その月の金額が表示されます</div>
     </div>`;
+}
+
+// 黒字化棒グラフの棒がタップ／クリックされた時に、その月の金額を表示する
+function showBreakEvenBarValue(month, valueText) {
+  const el = document.getElementById('breakEvenBarValue');
+  if (!el) return;
+  el.innerHTML = `<strong>${esc(month)}</strong>　営業損益累計：<strong>${esc(valueText)}</strong>`;
 }
 
 /*

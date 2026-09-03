@@ -454,6 +454,13 @@ table.plain tr.pl-row-referral td:first-child { color: var(--color-ok); font-wei
 .chart-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 6px; padding-left: 2px; }
 .chart-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: .8em; color: var(--color-ink-soft); }
 .chart-legend-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+/* 棒グラフの棒をタップ／クリックした時に金額を表示する欄（タッチ端末ではホバーの<title>が
+   出ないことが多いため、確実に見える形で表示する） */
+.chart-tap-value {
+  margin-top: 10px; padding: 10px 14px; background: var(--color-surface-alt);
+  border-radius: 8px; font-size: .88em; color: var(--color-ink-soft); text-align: center;
+}
+.chart-tap-value strong { color: var(--color-ink); }
 .charts-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
 @media (min-width: 860px) { .charts-grid.cols-2 { grid-template-columns: 1fr 1fr; } }
 .pie-row { display: grid; grid-template-columns: 1fr; gap: 24px; margin: 16px 0; }
