@@ -397,7 +397,7 @@ table.plain.pl-table-compact th, table.plain.pl-table-compact td { padding: 4px 
 /* 月次PL：仲介手数料・建築費（リフォーム／自社請負）・紹介料（他社紹介）を科目名の色で区別 */
 table.plain tr.pl-row-brokerage td:first-child { color: var(--color-navy-2); font-weight: 700; }
 table.plain tr.pl-row-construction td:first-child { color: var(--color-gold-strong); font-weight: 700; }
-table.plain tr.pl-row-referral td:first-child { color: var(--color-ok); font-weight: 700; }
+table.plain tr.pl-row-referral td:first-child { color: var(--color-link-value); font-weight: 700; }
 :root[data-theme="dark"] table.plain tr.pl-row-brokerage td:first-child { color: var(--color-gold); }
 :root[data-theme="dark"] table.plain tr.pl-row-construction td:first-child { color: var(--color-gold-strong); }
 

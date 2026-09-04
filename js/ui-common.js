@@ -116,9 +116,12 @@ function attachBindings(container, onChange) {
     if (!(el && el.dataset && el.dataset.numeric === 'true')) return;
     const parsed = parseNum(el.value);
     let value = isNaN(parsed) ? 0 : parsed;
+    // data-min は保存値（%欄なら「0〜1の割合」）基準なので、表示（%表記）の下限と
+    // 比較する際はdata-percentの欄だけ100倍して揃える。
     const minAttr = el.getAttribute('data-min');
     if (minAttr !== null && minAttr !== '') {
-      const min = parseFloat(minAttr);
+      let min = parseFloat(minAttr);
+      if (el.dataset.percent === 'true') min *= 100;
       if (!isNaN(min) && value < min) value = min;
     }
     el.value = formatNum(value);
@@ -133,6 +136,10 @@ function commitInput_(container, el, onChange) {
   else if (el.dataset && el.dataset.numeric === 'true') {
     const parsed = parseNum(el.value);
     value = isNaN(parsed) ? 0 : parsed;
+    // %表示の欄（利益率・CVR等）は画面上「30」のように100倍した値を入力させているため、
+    // 保存前に100で割って0〜1の割合に戻す（そうしないと計算式が0〜1の割合を前提にしている
+    // 箇所で桁違いの値が使われてしまう）。
+    if (el.dataset.percent === 'true') value = value / 100;
     const minAttr = el.getAttribute('data-min');
     if (minAttr !== null && minAttr !== '') {
       const min = parseFloat(minAttr);
@@ -157,6 +164,9 @@ function commitInput_(container, el, onChange) {
 // ライブ更新のヒント表示として追加する（例: 円/月の入力に対し年換算を表示、factor=12）。
 // 数値入力欄は文章入力欄（会社名等）と違って長い文字列を入れないため、既定で幅を狭くする
 // （.field-numericクラス、CSS側でmax-widthを指定）。opts.wideで従来幅に戻せる。
+// opts.percent: trueの場合、valueには呼び出し側が既に100倍した表示用の値（例: 30）を渡す。
+// 保存時はここで自動的に100で割った0〜1の割合（例: 0.3）に変換してappStateへ書き込む。
+// （呼び出し側が×100して表示だけしていて保存時に戻し忘れる、という事故を防ぐための仕組み）
 function fieldNumber(label, path, value, opts) {
   opts = opts || {};
   const suffix = opts.suffix || '';
@@ -169,7 +179,7 @@ function fieldNumber(label, path, value, opts) {
     <div class="field${opts.wide ? '' : ' field-numeric'}">
       <label>${esc(label)}</label>
       <div class="suffix-input">
-        <input type="text" inputmode="decimal" data-numeric="true" data-path="${path}" value="${esc(formatNum(value))}" style="text-align:right" ${min !== null ? `data-min="${min}"` : ''} autocomplete="off">
+        <input type="text" inputmode="decimal" data-numeric="true" ${opts.percent ? 'data-percent="true"' : ''} data-path="${path}" value="${esc(formatNum(value))}" style="text-align:right" ${min !== null ? `data-min="${min}"` : ''} autocomplete="off">
         ${suffix ? `<span>${esc(suffix)}</span>` : ''}
       </div>
       ${hint}

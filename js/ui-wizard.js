@@ -359,7 +359,7 @@ function renderStepAd() {
       <div class="field-row">
         ${fieldNumber('目標件数（反響数/月）', 'ad.targetLeads', ad.targetLeads, { suffix: '件/月', hint: '目安：営業人数×15件' })}
         ${fieldLinkedValue('CPC（クリック単価）', num(appState.cpc), { suffix: '円', hint: '「ターゲットエリア」で入力済みの値です' })}
-        ${fieldNumber('CVR（反響獲得率）', 'ad.cvr', ad.cvr * 100, { suffix: '%', step: '0.1' })}
+        ${fieldNumber('CVR（反響獲得率）', 'ad.cvr', ad.cvr * 100, { suffix: '%', step: '0.1', percent: true })}
       </div>
       <p class="hint">※CVRの入力は%単位。CPA（獲得単価）＝CPC÷CVRで自動計算されます（下のプレビューで確認できます）。</p>
       <div class="field-row">
@@ -395,9 +395,9 @@ function synergyBlock(key, label, cfg, extraFields) {
     <h3>${esc(label)}${cfg.enabled ? '' : '<span class="small text-muted">（「目標設定」ステップで未対応に設定されています）</span>'}</h3>
     <div class="field-row">
       ${fieldNumber('単価', `synergy.${key}.unitPrice`, cfg.unitPrice, { suffix: '円' })}
-      ${cfg.profitRate !== undefined ? fieldNumber('利益率', `synergy.${key}.profitRate`, cfg.profitRate * 100, { suffix: '%' }) : ''}
-      ${fieldNumber('不動産分配利益率', `synergy.${key}.allocRate`, cfg.allocRate * 100, { suffix: '%' })}
-      ${fieldNumber('歩留り（受注転換率）', `synergy.${key}.conversionRate`, cfg.conversionRate * 100, { suffix: '%' })}
+      ${cfg.profitRate !== undefined ? fieldNumber('利益率', `synergy.${key}.profitRate`, cfg.profitRate * 100, { suffix: '%', percent: true }) : ''}
+      ${fieldNumber('不動産分配利益率', `synergy.${key}.allocRate`, cfg.allocRate * 100, { suffix: '%', percent: true })}
+      ${fieldNumber('歩留り（受注転換率）', `synergy.${key}.conversionRate`, cfg.conversionRate * 100, { suffix: '%', percent: true })}
     </div>
     ${extraFields || ''}
   `;
@@ -525,7 +525,7 @@ function renderStepCosts() {
       <h3>インセンティブ（仲介手数料連動）</h3>
       <div class="field-row">
         ${fieldNumber('足切り係数', 'incentiveRule.cutoffFactor', ir.cutoffFactor, { suffix: '倍', step: '0.1' })}
-        ${fieldNumber('インセンティブ率', 'incentiveRule.incentiveRate', ir.incentiveRate * 100, { suffix: '%' })}
+        ${fieldNumber('インセンティブ率', 'incentiveRule.incentiveRate', ir.incentiveRate * 100, { suffix: '%', percent: true })}
       </div>
       <h3>損益分岐点算出用の想定PPC費用</h3>
       <div class="field-row">

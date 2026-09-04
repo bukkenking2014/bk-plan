@@ -172,7 +172,7 @@ function loadFromCloud(id) {
     .then(res => res.json())
     .then(json => {
       if (json.ok && json.data) {
-        appState = deepMerge(createDefaultState(), json.data);
+        appState = fixCorruptedPercentFields(deepMerge(createDefaultState(), json.data));
         saveState();
         currentCloudId = id;
         return { ok: true };

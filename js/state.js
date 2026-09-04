@@ -12,11 +12,32 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return createDefaultState();
     const parsed = JSON.parse(raw);
-    return deepMerge(createDefaultState(), parsed);
+    return fixCorruptedPercentFields(deepMerge(createDefaultState(), parsed));
   } catch (e) {
     console.warn('state load failed, using defaults', e);
     return createDefaultState();
   }
+}
+
+// 割合（0〜1）を保存すべき項目一覧。過去バージョンの入力欄バグにより、
+// 画面表示用に100倍した値（例：30％→30）がそのまま保存されてしまっている
+// ケースがあるため、1を超えている（＝100%を超える割合はあり得ない）場合は
+// 誤って100倍のまま保存されたものとみなし、自動的に100で割って補正する。
+const PERCENT_FIELD_PATHS = [
+  'ad.cvr',
+  'synergy.reform.profitRate', 'synergy.reform.allocRate', 'synergy.reform.conversionRate',
+  'synergy.selfBuild.profitRate', 'synergy.selfBuild.allocRate', 'synergy.selfBuild.conversionRate',
+  'synergy.referral.allocRate', 'synergy.referral.conversionRate',
+  'incentiveRule.incentiveRate'
+];
+function fixCorruptedPercentFields(state) {
+  PERCENT_FIELD_PATHS.forEach(path => {
+    const v = getPath(state, path);
+    if (typeof v === 'number' && v > 1) {
+      setPath(state, path, v / 100);
+    }
+  });
+  return state;
 }
 
 function saveState() {
