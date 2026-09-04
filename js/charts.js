@@ -133,15 +133,16 @@ function renderBreakEvenBarChart(months, cumulativeProfit, opts) {
     <text x="${padL - 8}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="${CHART_COLORS.text}" font-variant-numeric="tabular-nums">${fmtAxisYen(t)}</text>
   `).join('');
 
-  // タップ／クリックした棒のすぐ近くに金額を吹き出しでパッと表示する（<title>による
-  // ホバー表示はタッチ端末では出ないことが多いため、クリックイベントで確実に表示する）。
+  // 棒に触れた瞬間（マウスを乗せた／指で触れた）にパッと金額を表示する。クリックを
+  // 待たず、マウスhover・タッチ開始のどちらでも即座に反応するようにする。
   const bars = months.map((mo, i) => {
     const v = cumulativeProfit[i];
     const barX = padL + i * groupW + (groupW - barW) / 2;
     const barY = v >= 0 ? y(v) : yZero;
     const barH = Math.max(0.5, Math.abs(y(v) - yZero));
     const color = v >= 0 ? posColor : negColor;
-    return `<rect class="be-bar" x="${barX}" y="${barY}" width="${barW}" height="${barH}" fill="${color}" style="cursor:pointer" onclick="showBreakEvenBarValue(this, '${esc(mo)}', '${yenAcctText(v).replace(/'/g, "\\'")}')"><title>${esc(mo)} 営業損益累計: ${yenAcctText(v)}</title></rect>`;
+    const showCall = `showBreakEvenBarValue(this, '${esc(mo)}', '${yenAcctText(v).replace(/'/g, "\\'")}')`;
+    return `<rect class="be-bar" x="${barX}" y="${barY}" width="${barW}" height="${barH}" fill="${color}" style="cursor:pointer" onmouseenter="${showCall}" ontouchstart="${showCall}" onclick="${showCall}"><title>${esc(mo)} 営業損益累計: ${yenAcctText(v)}</title></rect>`;
   }).join('');
 
   const xTickIdx = months.map((_, i) => i).filter(i => i % 3 === 0 || i === n - 1);
@@ -176,8 +177,10 @@ function renderBreakEvenBarChart(months, cumulativeProfit, opts) {
     </div>`;
 }
 
-// 黒字化棒グラフの棒がタップ／クリックされた時に、その棒のすぐ上に金額の吹き出しを
-// パッと表示する（グラフ下の表示欄にも同じ内容を出し、読み上げ等でも分かるようにする）。
+// 黒字化棒グラフの棒に触れた瞬間、その棒のすぐ上に金額の吹き出しをパッと表示する
+// （グラフ下の表示欄にも同じ内容を出し、読み上げ等でも分かるようにする）。
+// グラフ全体が画面幅に合わせて縮小表示されるため、吹き出しは大きめの文字・2行構成にして
+// 縮小後も読みやすくしている。
 function showBreakEvenBarValue(rectEl, month, valueText) {
   const svg = rectEl.closest('svg');
   if (svg) {
@@ -190,15 +193,16 @@ function showBreakEvenBarValue(rectEl, month, valueText) {
       tip.setAttribute('id', 'beb-tooltip-group');
       svg.appendChild(tip); // 最後に追加＝他の棒より手前に描画される
     }
-    const label = `${month}：${valueText}`;
-    const boxW = Math.max(80, label.length * 8 + 20);
-    const boxH = 28;
+    const longer = Math.max(month.length, valueText.length);
+    const boxW = Math.max(160, longer * 15 + 32);
+    const boxH = 68;
     let boxX = x - boxW / 2;
     boxX = Math.max(2, Math.min(boxX, vb.width - boxW - 2));
-    const boxY = Math.max(2, topY - boxH - 10);
+    const boxY = Math.max(2, topY - boxH - 14);
     tip.innerHTML = `
-      <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="6" fill="#1a1a1a" stroke="#fff" stroke-width="1"></rect>
-      <text x="${boxX + boxW / 2}" y="${boxY + boxH / 2 + 4}" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">${esc(label)}</text>`;
+      <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="8" fill="#1a1a1a" stroke="var(--color-gold)" stroke-width="2.5"></rect>
+      <text x="${boxX + boxW / 2}" y="${boxY + 27}" text-anchor="middle" font-size="17" fill="#cfd3d8">${esc(month)}</text>
+      <text x="${boxX + boxW / 2}" y="${boxY + 52}" text-anchor="middle" font-size="23" font-weight="700" fill="#fff">${esc(valueText)}</text>`;
   }
   const el = document.getElementById('breakEvenBarValue');
   if (el) el.innerHTML = `<strong>${esc(month)}</strong>　営業損益累計：<strong>${esc(valueText)}</strong>`;

@@ -121,7 +121,8 @@ function renderSimplePLSection(result) {
           <tr><td>リフォーム</td><td>―</td><td>${yen(y.reform.amount)}</td></tr>
           <tr><td>自社請負</td><td>―</td><td>${yen(y.selfBuild.amount)}</td></tr>
           <tr><td>他社紹介</td><td>―</td><td>${yen(y.referral.amount)}</td></tr>
-          <tr><td>売上総利益 合計</td><td></td><td>${yenAcct(y.totalRevenue)}</td></tr>
+          <tr><td>売上高 合計</td><td></td><td>${yenAcct(y.totalRevenue)}</td></tr>
+          <tr><td>売上総利益 合計</td><td></td><td>${yenAcct(y.grossProfit)}</td></tr>
           <tr><td>販売管理費 合計</td><td></td><td>${yen(y.sgaTotal)}</td></tr>
         </tbody>
         <tfoot><tr><td>営業損益</td><td></td><td>${yenAcct(y.operatingIncome)}</td></tr></tfoot>

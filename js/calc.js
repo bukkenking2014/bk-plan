@@ -366,7 +366,10 @@ function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
   );
   const sgaTotalWithInitial = range(12).map(i => sgaTotal[i] + initialSetup[i]);
 
-  const operatingIncome = range(12).map(i => totalRevenue[i] - sgaTotal[i]);
+  // 営業損益＝売上総利益（売上高－売上原価）－販売管理費。以前は売上原価を差し引かずに
+  // 売上高からそのまま販管費を引いていたバグがあり、原価が計上される月ほど営業損益が
+  // 過大に出ていた（結果的に経常損益・当期純損益・黒字化グラフにも影響していた）。
+  const operatingIncome = range(12).map(i => grossProfit[i] - sgaTotal[i]);
   const extras = computePLExtras(state, operatingIncome, 0);
 
   return {
@@ -375,6 +378,7 @@ function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
     lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, incentive, initialSetup },
     sgaTotal, sgaTotalWithInitial, operatingIncome, ...extras,
     sumFirstHalf: sumRange(totalRevenue, 0, 6), sumSecondHalf: sumRange(totalRevenue, 6, 12), sumYear: sumAll(totalRevenue),
+    grossProfitSumYear: sumAll(grossProfit),
     sgaSumYear: sumAll(sgaTotal), opIncomeSumYear: sumAll(operatingIncome)
   };
 }
@@ -464,7 +468,7 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, opening
     dues[i] + lease[i] + insurance[i] + depreciation[i] + tax[i] + misc[i] + training[i] +
     consulting[i] + storeRunning[i] + incentive[i]
   );
-  const operatingIncome = range(12).map(i => totalRevenue[i] - sgaTotal[i]);
+  const operatingIncome = range(12).map(i => grossProfit[i] - sgaTotal[i]);
   const extras = computePLExtras(state, operatingIncome, Number(openingAssets) || 0); // 前年の赤字繰越もあり得るため0クランプしない
 
   return {
@@ -473,6 +477,7 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, opening
     lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, incentive, initialSetup },
     sgaTotal, operatingIncome, ...extras,
     sumFirstHalf: sumRange(totalRevenue, 0, 6), sumSecondHalf: sumRange(totalRevenue, 6, 12), sumYear: sumAll(totalRevenue),
+    grossProfitSumYear: sumAll(grossProfit),
     sgaSumYear: sumAll(sgaTotal), opIncomeSumYear: sumAll(operatingIncome)
   };
 }
@@ -496,8 +501,9 @@ function computeSummary(pl1, pl2) {
       selfBuild: { amount: sumAll(pl1.selfBuildRevenue) },
       referral: { amount: sumAll(pl1.referralRevenue) },
       totalRevenue: pl1.sumYear,
+      grossProfit: pl1.grossProfitSumYear,
       sgaTotal: pl1.sgaSumYear,
-      operatingIncome: pl1.sumYear - pl1.sgaSumYear,
+      operatingIncome: pl1.opIncomeSumYear,
       ordinaryIncome: pl1.ordinaryIncomeSumYear, netIncome: pl1.netIncomeSumYear, closingAssets: pl1.closingAssets
     },
     year2: {
@@ -506,6 +512,7 @@ function computeSummary(pl1, pl2) {
       selfBuild: { amount: sumAll(pl2.selfBuildRevenue) },
       referral: { amount: sumAll(pl2.referralRevenue) },
       totalRevenue: pl2.sumYear,
+      grossProfit: pl2.grossProfitSumYear,
       sgaTotal: pl2.sgaSumYear,
       operatingIncome: pl2.opIncomeSumYear,
       ordinaryIncome: pl2.ordinaryIncomeSumYear, netIncome: pl2.netIncomeSumYear, closingAssets: pl2.closingAssets
