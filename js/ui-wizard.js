@@ -194,7 +194,7 @@ function previewAreas(result) {
     </tr>`).join('');
   return `
     <div class="preview-panel">
-      <h3>ターゲットエリア分析プレビュー</h3>
+      <h3>ターゲットエリア分析概要</h3>
       <div class="preview-grid">
         <div class="preview-stat"><div class="label">全エリア合計物件数</div><div class="value">${num(a.totalCount)}<small>件</small></div></div>
         <div class="preview-stat"><div class="label">加重平均 手数料/件</div><div class="value">${man(a.avgFeeManOverall)}</div></div>
@@ -278,73 +278,53 @@ function previewGoals(result) {
   (appState.staff.managers || []).forEach((p, i) => staffRows.push({ label: `不動産業務経験者${appState.staff.managers.length > 1 ? i + 1 : ''}`, salary: nonNeg(p.salary) }));
   (appState.staff.agents || []).forEach((p, i) => staffRows.push({ label: `エージェント${appState.staff.agents.length > 1 ? i + 1 : ''}`, salary: nonNeg(p.salary) }));
   (appState.staff.supports || []).forEach((p, i) => staffRows.push({ label: `サポート${appState.staff.supports.length > 1 ? i + 1 : ''}`, salary: nonNeg(p.salary) }));
-  const rowCount = Math.max(staffRows.length, 1);
-  const staffRowsHtml = staffRows.length === 0 ? '' : staffRows.map((r, i) => `
-    <tr>
-      <td>${esc(r.label)}</td>
-      <td class="ex-cell-input">${yen(r.salary)}</td>
-      ${i === 0 ? `
-      <td class="ex-cell-merged" rowspan="${rowCount}">${yen(st.laborCostMonth)}</td>
-      <td class="ex-cell-merged" rowspan="${rowCount}">${yen(st.laborCostYear)}</td>
-      <td class="ex-cell-merged" rowspan="${rowCount}">${yen(oc.grandTotal)}</td>
-      <td class="ex-cell-merged" rowspan="${rowCount}">${yen(be.breakEvenAnnual)}</td>` : ''}
-    </tr>`).join('');
-
   return `
     <div class="preview-panel">
-      <div class="excel-mimic">
-        <h3 class="ex-title">営業利益イメージと必要契約本数</h3>
+      <h3>営業利益イメージと必要契約件数</h3>
 
-        <div class="ex-section-label">【 損益分岐点の把握 】</div>
-        <div class="table-scroll">
-        <table class="excel-table">
-          <thead><tr><th>人員</th><th>給与</th><th>人件費/月</th><th>人件費/年</th><th>その他費用/年</th><th>損益分岐/年</th></tr></thead>
-          <tbody>${staffRowsHtml}</tbody>
-        </table>
-        </div>
-
-        <div class="ex-section-label">【 必要契約本数の理解 】</div>
-        <div class="ex-flow-row">
-          <div class="ex-box"><div class="ex-box-label">損益分岐/年</div><div class="ex-box-value">${yen(be.breakEvenAnnual)}</div></div>
-          <div class="ex-op">÷</div>
-          <div class="ex-box"><div class="ex-box-label">手数料/件</div><div class="ex-box-value">${yen(result.areas.feeRawYen)}</div></div>
-          <div class="ex-op">＝</div>
-          <div class="ex-box"><div class="ex-box-label">必要契約数/年</div><div class="ex-box-value">${num(be.requiredContractsYear)}<small>件</small></div></div>
-          <div class="ex-op">＝</div>
-          <div class="ex-box ex-box-highlight"><div class="ex-box-label">必要契約数/月</div><div class="ex-box-value">${num(be.requiredContractsMonth)}<small>件</small></div><div class="ex-box-note">片手1本換算</div></div>
-        </div>
-        <div class="table-scroll">
-        <table class="excel-table small">
-          <thead><tr><th>年間契約数</th><th>手数料合計</th><th>営業利益（損益余剰分）</th></tr></thead>
-          <tbody><tr><td>${num(be.referenceAnnualContracts)}件</td><td>${yen(be.referenceAnnualRevenue)}</td><td>${yenAcct(be.referenceOperatingSurplus)}</td></tr></tbody>
-        </table>
-        </div>
-
-        <div class="ex-section-label">【 年間 営業利益イメージ（2年目以降） 】</div>
-        <div class="ex-flow-row">
-          <div class="ex-box"><div class="ex-box-label">年間</div><div class="ex-box-value ex-cell-input">${yen(appState.targetProfitAnnual)}</div></div>
-          <div class="ex-op">÷</div>
-          <div class="ex-box"><div class="ex-box-label">手数料/件</div><div class="ex-box-value">${yen(result.areas.feeRawYen)}</div></div>
-          <div class="ex-op">＝</div>
-          <div class="ex-box"><div class="ex-box-label">必要契約数/年</div><div class="ex-box-value">${num(be.targetProfitContractsYear)}<small>件</small></div></div>
-          <div class="ex-op">＝</div>
-          <div class="ex-box ex-box-highlight"><div class="ex-box-label">必要契約数/月</div><div class="ex-box-value">${num(be.targetProfitContractsMonth)}<small>件</small></div></div>
-        </div>
-
-        <div class="ex-target-row">
-          <div class="ex-target-box"><div class="ex-target-label">目標とする契約件数/月</div><div class="ex-target-value">${num(be.targetContractsMonth)}<small>件</small></div></div>
-          <div class="ex-target-box"><div class="ex-target-label">目標とする契約件数/年</div><div class="ex-target-value">${num(be.targetContractsYear)}<small>件</small></div></div>
-          <div class="table-scroll">
-          <table class="excel-table small ex-breakdown-table">
-            <tbody>
-              <tr><td>土地</td><td>${num(be.targetLandCount)}</td></tr>
-              <tr><td>中古系</td><td>${num(be.targetUsedCount,1)}</td></tr>
-              <tr><td>新築建売</td><td>${num(be.targetNewCount,1)}</td></tr>
-            </tbody>
-          </table>
-          </div>
-        </div>
+      <h4 class="preview-subhead">人員体制と損益分岐点</h4>
+      <table class="mini-table">
+        <thead><tr><th>人員</th><th>給与</th></tr></thead>
+        <tbody>${staffRows.map(r => `<tr><td>${esc(r.label)}</td><td>${yen(r.salary)}</td></tr>`).join('')}</tbody>
+      </table>
+      <div class="preview-grid" style="margin-top:12px">
+        <div class="preview-stat"><div class="label">人件費/月</div><div class="value">${yen(st.laborCostMonth)}</div></div>
+        <div class="preview-stat"><div class="label">人件費/年</div><div class="value">${yen(st.laborCostYear)}</div></div>
+        <div class="preview-stat"><div class="label">その他費用/年</div><div class="value">${yen(oc.grandTotal)}</div></div>
+        <div class="preview-stat highlight"><div class="label">損益分岐点/年</div><div class="value">${yen(be.breakEvenAnnual)}</div></div>
       </div>
+
+      <h4 class="preview-subhead">必要契約件数の考え方</h4>
+      <p class="preview-formula">損益分岐点/年（${yen(be.breakEvenAnnual)}） ÷ 手数料/件（${yen(result.areas.feeRawYen)}） ＝ 必要契約数/年　${num(be.requiredContractsYear)}件</p>
+      <div class="preview-grid">
+        <div class="preview-stat"><div class="label">必要契約数/年</div><div class="value">${num(be.requiredContractsYear)}<small>件</small></div></div>
+        <div class="preview-stat highlight"><div class="label">必要契約数/月（片手1本換算）</div><div class="value">${num(be.requiredContractsMonth)}<small>件</small></div></div>
+      </div>
+      <table class="mini-table" style="margin-top:14px">
+        <thead><tr><th>年間契約数</th><th>手数料合計</th><th>営業利益（損益余剰分）</th></tr></thead>
+        <tbody><tr><td>${num(be.referenceAnnualContracts)}件</td><td>${yen(be.referenceAnnualRevenue)}</td><td>${yenAcct(be.referenceOperatingSurplus)}</td></tr></tbody>
+      </table>
+
+      <h4 class="preview-subhead">年間営業利益イメージ（2年目以降）</h4>
+      <p class="preview-formula">年間営業利益目標（${yen(appState.targetProfitAnnual)}） ÷ 手数料/件（${yen(result.areas.feeRawYen)}） ＝ 追加で必要な契約数/年　${num(be.targetProfitContractsYear)}件</p>
+      <div class="preview-grid">
+        <div class="preview-stat"><div class="label">必要契約数/年</div><div class="value">${num(be.targetProfitContractsYear)}<small>件</small></div></div>
+        <div class="preview-stat highlight"><div class="label">必要契約数/月</div><div class="value">${num(be.targetProfitContractsMonth)}<small>件</small></div></div>
+      </div>
+
+      <h4 class="preview-subhead">目標とする契約件数（採用値）</h4>
+      <div class="preview-grid">
+        <div class="preview-stat highlight"><div class="label">目標契約件数/月</div><div class="value">${num(be.targetContractsMonth)}<small>件</small></div></div>
+        <div class="preview-stat highlight"><div class="label">目標契約件数/年</div><div class="value">${num(be.targetContractsYear)}<small>件</small></div></div>
+      </div>
+      <table class="mini-table" style="margin-top:12px;max-width:320px">
+        <thead><tr><th>種別</th><th>年間目標件数</th></tr></thead>
+        <tbody>
+          <tr><td>土地</td><td>${num(be.targetLandCount)}件</td></tr>
+          <tr><td>中古系</td><td>${num(be.targetUsedCount,1)}件</td></tr>
+          <tr><td>新築建売</td><td>${num(be.targetNewCount,1)}件</td></tr>
+        </tbody>
+      </table>
     </div>`;
 }
 
@@ -361,7 +341,7 @@ function renderStepAd() {
         ${fieldLinkedValue('CPC（クリック単価）', num(appState.cpc), { suffix: '円', hint: '「ターゲットエリア」で入力済みの値です' })}
         ${fieldNumber('CVR（反響獲得率）', 'ad.cvr', ad.cvr * 100, { suffix: '%', step: '0.1', percent: true })}
       </div>
-      <p class="hint">※CVRの入力は%単位。CPA（獲得単価）＝CPC÷CVRで自動計算されます（下のプレビューで確認できます）。</p>
+      <p class="hint">※CVRの入力は%単位。CPA（獲得単価）＝CPC÷CVRで自動計算されます（下の概要で確認できます）。</p>
       <div class="field-row">
         ${fieldNumber('ポータルサイト費用', 'ad.portal', ad.portal, { suffix: '円/月' })}
         ${fieldNumber('査定サイト費用', 'ad.assessmentSite', ad.assessmentSite, { suffix: '円/月' })}
@@ -376,7 +356,7 @@ function previewAd(result) {
   const bp = result.businessPlan;
   return `
     <div class="preview-panel">
-      <h3>広告宣伝費プレビュー</h3>
+      <h3>広告宣伝費概要</h3>
       <div class="preview-grid">
         <div class="preview-stat"><div class="label">目標反響数/月</div><div class="value">${num(bp.targetLeads)}<small>件</small></div></div>
         <div class="preview-stat"><div class="label">CPA（獲得単価・自動計算）</div><div class="value">${yen(bp.cpa)}</div></div>
@@ -461,6 +441,15 @@ function renderStepCosts() {
     <div class="card">
       <h2>その他運営コスト</h2>
       <p class="desc">デフォルト値は物件王の標準想定値です。必要に応じて編集してください。月額・年額のどちらかを入力すると、もう一方の換算値も表示されます。</p>
+      <div id="preview-costs"></div>
+      <h3>店舗組成費（イニシャル）</h3>
+      <p class="desc" style="margin-top:-4px">免許費用（免許「無し」の場合のみ自動計上）に加え、以下は免許の有無に関わらず計上されます。</p>
+      <div class="field-row">
+        ${fieldNumber('物件王 加盟金', 'initialCost.franchiseFee', ic.franchiseFee, { suffix: '円' })}
+        ${fieldNumber('物件王会費', 'initialCost.membershipFee', ic.membershipFee, { suffix: '円' })}
+        ${fieldNumber('看板設置費用', 'initialCost.signageCost', ic.signageCost, { suffix: '円' })}
+      </div>
+      <h3>消耗品費・事務用品費・諸会費</h3>
       <div class="field-row">
         ${fieldNumber('消耗品費', 'otherCosts.consumables', oc.consumables, { suffix: '円/年', dual: { label: '月換算：', factor: 1 / 12 } })}
         ${fieldNumber('事務用品費', 'otherCosts.officeSupplies', oc.officeSupplies, { suffix: '円/年', dual: { label: '月換算：', factor: 1 / 12 } })}
@@ -515,13 +504,6 @@ function renderStepCosts() {
           </select>
         </div>
       </div>
-      <h3>店舗組成費（イニシャル）</h3>
-      <p class="desc" style="margin-top:-4px">免許費用（免許「無し」の場合のみ自動計上）に加え、以下は免許の有無に関わらず計上されます。</p>
-      <div class="field-row">
-        ${fieldNumber('物件王 加盟金', 'initialCost.franchiseFee', ic.franchiseFee, { suffix: '円' })}
-        ${fieldNumber('物件王会費', 'initialCost.membershipFee', ic.membershipFee, { suffix: '円' })}
-        ${fieldNumber('看板設置費用', 'initialCost.signageCost', ic.signageCost, { suffix: '円' })}
-      </div>
       <h3>インセンティブ（仲介手数料連動）</h3>
       <div class="field-row">
         ${fieldNumber('足切り係数', 'incentiveRule.cutoffFactor', ir.cutoffFactor, { suffix: '倍', step: '0.1' })}
@@ -543,14 +525,13 @@ function renderStepCosts() {
         ${fieldNumber('特別利益・損失', 'plExtras.extraordinaryItems', pe.extraordinaryItems, { suffix: '円/年', min: null, hint: '損失の場合はマイナスで入力' })}
         ${fieldNumber('法人税等', 'plExtras.corporateTax', pe.corporateTax, { suffix: '円/年' })}
       </div>
-      <div id="preview-costs"></div>
     </div>`;
 }
 function previewCosts(result) {
   const bp = result.businessPlan;
   return `
     <div class="preview-panel">
-      <h3>店舗組成費プレビュー</h3>
+      <h3>店舗組成費概要</h3>
       <div class="preview-grid">
         <div class="preview-stat"><div class="label">店舗組成費合計（税込）</div><div class="value">${yen(bp.initialCostTotalTax)}</div></div>
       </div>

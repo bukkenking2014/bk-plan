@@ -112,15 +112,18 @@ function renderBreakEvenSection(result) {
 
 function renderSimplePLSection(result) {
   const s = result.summary;
+  const bp = result.businessPlan;
+  // リフォーム・自社請負・他社紹介の件数は年間受注頻度（建築事業ステップで設定）を採用。
+  // 1年目は稼働半年想定のため一部の月しか発生しないが、年間ベースの受注頻度としては共通の値。
   function block(title, y) {
     return `
       <table class="plain">
         <thead><tr><th colspan="3">${esc(title)}</th></tr><tr><th>科目</th><th>件数</th><th>金額</th></tr></thead>
         <tbody>
           <tr><td>仲介手数料</td><td>${num(y.brokerage.count)}件</td><td>${yen(y.brokerage.amount)}</td></tr>
-          <tr><td>リフォーム</td><td>―</td><td>${yen(y.reform.amount)}</td></tr>
-          <tr><td>自社請負</td><td>―</td><td>${yen(y.selfBuild.amount)}</td></tr>
-          <tr><td>他社紹介</td><td>―</td><td>${yen(y.referral.amount)}</td></tr>
+          <tr><td>リフォーム</td><td>${num(bp.reform.annualFreq)}件</td><td>${yen(y.reform.amount)}</td></tr>
+          <tr><td>自社請負</td><td>${num(bp.selfBuild.annualFreq)}件</td><td>${yen(y.selfBuild.amount)}</td></tr>
+          <tr><td>他社紹介</td><td>${num(bp.referral.annualFreq)}件</td><td>${yen(y.referral.amount)}</td></tr>
           <tr><td>売上高 合計</td><td></td><td>${yenAcct(y.totalRevenue)}</td></tr>
           <tr><td>売上総利益 合計</td><td></td><td>${yenAcct(y.grossProfit)}</td></tr>
           <tr><td>販売管理費 合計</td><td></td><td>${yen(y.sgaTotal)}</td></tr>
@@ -169,7 +172,7 @@ function monthlyPLTable(pl) {
         ${lineRows}
         ${row('研修費（成長投資費）', trainingCombined)}
         ${row('販売管理費 計', pl.sgaTotal, 'row-highlight')}
-        ${row('営業損益', pl.operatingIncome, 'row-highlight')}
+        ${row('営業損益', pl.operatingIncome, 'row-final')}
         ${row('営業外収益', pl.nonOperatingIncome, 'row-subtotal')}
         ${row('営業外費用', pl.nonOperatingExpense, 'row-subtotal')}
         ${row('経常損益', pl.ordinaryIncome, 'row-final')}
