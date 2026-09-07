@@ -430,7 +430,6 @@ function previewSynergy(result) {
 function renderStepCosts() {
   const oc = appState.otherCosts;
   const ic = appState.initialCost;
-  const ir = appState.incentiveRule;
   const pe = appState.plExtras;
   const st = computeStaff(appState);
   const travelMonth = st.salesHeadcount * 30000;
@@ -503,11 +502,6 @@ function renderStepCosts() {
             <option value="新築" ${oc.depreciationType !== '改装' ? 'selected' : ''}>新築等（20年償却）</option>
           </select>
         </div>
-      </div>
-      <h3>インセンティブ（仲介手数料連動）</h3>
-      <div class="field-row">
-        ${fieldNumber('足切り係数', 'incentiveRule.cutoffFactor', ir.cutoffFactor, { suffix: '倍', step: '0.1' })}
-        ${fieldNumber('インセンティブ率', 'incentiveRule.incentiveRate', ir.incentiveRate * 100, { suffix: '%', percent: true })}
       </div>
       <h3>損益分岐点算出用の想定PPC費用</h3>
       <div class="field-row">

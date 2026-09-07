@@ -30,6 +30,14 @@
   --font-sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "YuGothic", "Noto Sans JP", sans-serif;
   --font-serif: var(--font-sans);
   color-scheme: light;
+  /* 月次PLの主要行（売上高・売上総利益・営業損益・経常損益・当期純損益）を
+     一目で見分けられるように色分け。各行は控えめな地色、右端の「合計」列だけ
+     濃いめにして視線が集まるようにする（読みやすさ優先で彩度は抑えめ）。 */
+  --pl-revenue-bg: #dbe9fb; --pl-revenue-fg: #163f74; --pl-revenue-total-bg: #a9cef3; --pl-revenue-total-fg: #0c2c52;
+  --pl-gross-bg: #dcf3e6; --pl-gross-fg: #146443; --pl-gross-total-bg: #a8e4c4; --pl-gross-total-fg: #0b4530;
+  --pl-operating-bg: #fbe8c2; --pl-operating-fg: #7a4b00; --pl-operating-total-bg: #f0c165; --pl-operating-total-fg: #5c3900;
+  --pl-ordinary-bg: #e8ddf7; --pl-ordinary-fg: #4a2f82; --pl-ordinary-total-bg: #c7abed; --pl-ordinary-total-fg: #33205c;
+  --pl-net-bg: #f6dcd6; --pl-net-fg: #8a3320; --pl-net-total-bg: #e8a794; --pl-net-total-fg: #632012;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,6 +68,11 @@
     --lane-4: #6f8fd6;
     --shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
     color-scheme: dark;
+    --pl-revenue-bg: #1d3c63; --pl-revenue-fg: #bcdcff; --pl-revenue-total-bg: #2c5a91; --pl-revenue-total-fg: #eef6ff;
+    --pl-gross-bg: #113f2d; --pl-gross-fg: #a9eecb; --pl-gross-total-bg: #1c6a49; --pl-gross-total-fg: #e8fff1;
+    --pl-operating-bg: #5a4212; --pl-operating-fg: #ffdd9c; --pl-operating-total-bg: #7c5c1c; --pl-operating-total-fg: #fff3d9;
+    --pl-ordinary-bg: #382758; --pl-ordinary-fg: #ddccff; --pl-ordinary-total-bg: #4f3a7c; --pl-ordinary-total-fg: #f0e7ff;
+    --pl-net-bg: #542720; --pl-net-fg: #ffc9b8; --pl-net-total-bg: #7a3a2c; --pl-net-total-fg: #ffe3da;
   }
 }
 :root[data-theme="dark"] {
@@ -89,6 +102,11 @@
   --lane-4: #6f8fd6;
   --shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
+  --pl-revenue-bg: #1d3c63; --pl-revenue-fg: #bcdcff; --pl-revenue-total-bg: #2c5a91; --pl-revenue-total-fg: #eef6ff;
+  --pl-gross-bg: #113f2d; --pl-gross-fg: #a9eecb; --pl-gross-total-bg: #1c6a49; --pl-gross-total-fg: #e8fff1;
+  --pl-operating-bg: #5a4212; --pl-operating-fg: #ffdd9c; --pl-operating-total-bg: #7c5c1c; --pl-operating-total-fg: #fff3d9;
+  --pl-ordinary-bg: #382758; --pl-ordinary-fg: #ddccff; --pl-ordinary-total-bg: #4f3a7c; --pl-ordinary-total-fg: #f0e7ff;
+  --pl-net-bg: #542720; --pl-net-fg: #ffc9b8; --pl-net-total-bg: #7a3a2c; --pl-net-total-fg: #ffe3da;
 }
 :root[data-theme="light"] {
   --color-bg: #f5f6fa;
@@ -117,6 +135,11 @@
   --lane-4: #5b7fc4;
   --shadow: 0 2px 16px rgba(20, 34, 74, 0.07);
   color-scheme: light;
+  --pl-revenue-bg: #dbe9fb; --pl-revenue-fg: #163f74; --pl-revenue-total-bg: #a9cef3; --pl-revenue-total-fg: #0c2c52;
+  --pl-gross-bg: #dcf3e6; --pl-gross-fg: #146443; --pl-gross-total-bg: #a8e4c4; --pl-gross-total-fg: #0b4530;
+  --pl-operating-bg: #fbe8c2; --pl-operating-fg: #7a4b00; --pl-operating-total-bg: #f0c165; --pl-operating-total-fg: #5c3900;
+  --pl-ordinary-bg: #e8ddf7; --pl-ordinary-fg: #4a2f82; --pl-ordinary-total-bg: #c7abed; --pl-ordinary-total-fg: #33205c;
+  --pl-net-bg: #f6dcd6; --pl-net-fg: #8a3320; --pl-net-total-bg: #e8a794; --pl-net-total-fg: #632012;
 }
 
 * { box-sizing: border-box; }
@@ -360,10 +383,35 @@ table.plain tr.row-subtotal td { font-weight: 700; background: var(--color-surfa
 table.plain tr.row-highlight td { font-weight: 700; background: var(--color-gold-soft); }
 .table-scroll table.plain tr.row-subtotal td:first-child { background: var(--color-surface-alt); }
 .table-scroll table.plain tr.row-highlight td:first-child { background: var(--color-gold-soft); }
-/* row-final：経常損益・当期純損益など、月次PLで最も重要な最終行の強調（元Excelのオレンジ強調に対応） */
-table.plain tr.row-final td { font-weight: 700; background: var(--color-gold); color: #201400; }
-.table-scroll table.plain tr.row-final td:first-child { background: var(--color-gold); color: #201400; }
-table.plain tr.row-final td .neg { color: #6e1c14; }
+/* 月次PLの主要行（売上高合計・売上総利益・営業損益・経常損益・当期純損益）の色分け。
+   科目名（1列目）から色を付け、行ごとに異なる色にして一目で見分けられるようにする。
+   右端の「合計」列だけさらに濃い色にして、年間トータルの数字が目に入りやすいようにする。 */
+table.plain tr.pl-row-total-revenue td { font-weight: 700; background: var(--pl-revenue-bg); color: var(--pl-revenue-fg); }
+table.plain tr.pl-row-total-revenue td:last-child { background: var(--pl-revenue-total-bg); color: var(--pl-revenue-total-fg); font-weight: 800; }
+.table-scroll table.plain tr.pl-row-total-revenue td:first-child { background: var(--pl-revenue-bg); color: var(--pl-revenue-fg); }
+
+table.plain tr.pl-row-gross-profit td { font-weight: 700; background: var(--pl-gross-bg); color: var(--pl-gross-fg); }
+table.plain tr.pl-row-gross-profit td:last-child { background: var(--pl-gross-total-bg); color: var(--pl-gross-total-fg); font-weight: 800; }
+.table-scroll table.plain tr.pl-row-gross-profit td:first-child { background: var(--pl-gross-bg); color: var(--pl-gross-fg); }
+
+table.plain tr.pl-row-operating-income td { font-weight: 700; background: var(--pl-operating-bg); color: var(--pl-operating-fg); }
+table.plain tr.pl-row-operating-income td:last-child { background: var(--pl-operating-total-bg); color: var(--pl-operating-total-fg); font-weight: 800; }
+.table-scroll table.plain tr.pl-row-operating-income td:first-child { background: var(--pl-operating-bg); color: var(--pl-operating-fg); }
+
+table.plain tr.pl-row-ordinary-income td { font-weight: 700; background: var(--pl-ordinary-bg); color: var(--pl-ordinary-fg); }
+table.plain tr.pl-row-ordinary-income td:last-child { background: var(--pl-ordinary-total-bg); color: var(--pl-ordinary-total-fg); font-weight: 800; }
+.table-scroll table.plain tr.pl-row-ordinary-income td:first-child { background: var(--pl-ordinary-bg); color: var(--pl-ordinary-fg); }
+
+table.plain tr.pl-row-net-income td { font-weight: 700; background: var(--pl-net-bg); color: var(--pl-net-fg); }
+table.plain tr.pl-row-net-income td:last-child { background: var(--pl-net-total-bg); color: var(--pl-net-total-fg); font-weight: 800; }
+.table-scroll table.plain tr.pl-row-net-income td:first-child { background: var(--pl-net-bg); color: var(--pl-net-fg); }
+/* 合計列（一番左＝科目名の次に来る固定列ではなく、表の最終列）はスクロール固定の対象外なので
+   1列目のような特別指定は不要。ただし1列目と合計列が同じ行で両方色付けされる場合、
+   1列目指定を後に置いて優先させる。 */
+table.plain tr[class^="pl-row-"] td .neg,
+table.plain tr[class*=" pl-row-"] td .neg { color: #6e1c14; }
+:root[data-theme="dark"] table.plain tr[class^="pl-row-"] td .neg,
+:root[data-theme="dark"] table.plain tr[class*=" pl-row-"] td .neg { color: #ffb3a3; }
 
 /* 月次PL：列数が多いため、単位を万円にした上でさらにコンパクトな書式にして
    横スクロール無しでも収まりやすくする（フォント・余白を通常のtable.plainより詰める） */

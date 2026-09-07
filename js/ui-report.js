@@ -115,15 +115,16 @@ function renderSimplePLSection(result) {
   const bp = result.businessPlan;
   // リフォーム・自社請負・他社紹介の件数は年間受注頻度（建築事業ステップで設定）を採用。
   // 1年目は稼働半年想定のため一部の月しか発生しないが、年間ベースの受注頻度としては共通の値。
+  const sy = appState.synergy;
   function block(title, y) {
     return `
       <table class="plain">
         <thead><tr><th colspan="3">${esc(title)}</th></tr><tr><th>科目</th><th>件数</th><th>金額</th></tr></thead>
         <tbody>
           <tr><td>仲介手数料</td><td>${num(y.brokerage.count)}件</td><td>${yen(y.brokerage.amount)}</td></tr>
-          <tr><td>リフォーム</td><td>${num(bp.reform.annualFreq)}件</td><td>${yen(y.reform.amount)}</td></tr>
-          <tr><td>自社請負</td><td>${num(bp.selfBuild.annualFreq)}件</td><td>${yen(y.selfBuild.amount)}</td></tr>
-          <tr><td>他社紹介</td><td>${num(bp.referral.annualFreq)}件</td><td>${yen(y.referral.amount)}</td></tr>
+          ${sy.reform.enabled ? `<tr><td>リフォーム</td><td>${num(bp.reform.annualFreq)}件</td><td>${yen(y.reform.amount)}</td></tr>` : ''}
+          ${sy.selfBuild.enabled ? `<tr><td>自社請負</td><td>${num(bp.selfBuild.annualFreq)}件</td><td>${yen(y.selfBuild.amount)}</td></tr>` : ''}
+          ${sy.referral.enabled ? `<tr><td>他社紹介</td><td>${num(bp.referral.annualFreq)}件</td><td>${yen(y.referral.amount)}</td></tr>` : ''}
           <tr><td>売上高 合計</td><td></td><td>${yenAcct(y.totalRevenue)}</td></tr>
           <tr><td>売上総利益 合計</td><td></td><td>${yenAcct(y.grossProfit)}</td></tr>
           <tr><td>販売管理費 合計</td><td></td><td>${yen(y.sgaTotal)}</td></tr>
@@ -146,7 +147,7 @@ function monthlyPLTable(pl) {
     ['communication', '通信費'], ['consumables', '消耗品費'], ['officeSupplies', '事務用品費'],
     ['equipment', '備品費'], ['utilities', '水道光熱費'], ['dues', '諸会費'], ['lease', 'リース料'],
     ['insurance', '保険料'], ['depreciation', '減価償却費'], ['tax', '租税公課'], ['misc', '雑費'],
-    ['storeRunning', '店舗経費（ランニング）'], ['incentive', 'インセンティブ']
+    ['storeRunning', '店舗経費（ランニング）']
   ];
   const monthHeader = pl.months.map(m => `<th>${m}</th>`).join('');
   // 万円単位・整数表示にして列数の多い月次PLを極力コンパクトにする（表全体はヘッダーに単位：万円と明記）
@@ -155,6 +156,8 @@ function monthlyPLTable(pl) {
   const lineRows = lineLabels.map(([key, label]) => row(label, pl.lines[key])).join('');
   // 研修費（成長投資費）＝研修費＋コンサル費（SV,PPC）を合算した1行で表示（入力を1項目に統一したのに合わせる）
   const trainingCombined = pl.lines.training.map((v, i) => v + pl.lines.consulting[i]);
+  // 目標設定ステップで対応しない設定にした建築シナジー事業は、金額が常に0でも行ごと非表示にする
+  const sy = appState.synergy;
   // 営業外収益＝受取利息＋雑収入、営業外費用＝支払利息＋雑損失
   return `
     <div class="table-scroll">
@@ -163,23 +166,23 @@ function monthlyPLTable(pl) {
       <tbody>
         ${countRow('仲介契約件数', pl.contracts)}
         ${row('仲介手数料', pl.brokerageRevenue, 'pl-row-brokerage')}
-        ${row('リフォーム', pl.reformRevenue, 'pl-row-construction')}
-        ${row('自社請負', pl.selfBuildRevenue, 'pl-row-construction')}
-        ${row('他社紹介', pl.referralRevenue, 'pl-row-referral')}
-        ${row('売上高 合計', pl.totalRevenue, 'row-subtotal')}
+        ${sy.reform.enabled ? row('リフォーム', pl.reformRevenue, 'pl-row-construction') : ''}
+        ${sy.selfBuild.enabled ? row('自社請負', pl.selfBuildRevenue, 'pl-row-construction') : ''}
+        ${sy.referral.enabled ? row('他社紹介', pl.referralRevenue, 'pl-row-referral') : ''}
+        ${row('売上高 合計', pl.totalRevenue, 'pl-row-total-revenue')}
         ${row('売上原価', pl.totalCogs)}
-        ${row('売上総利益', pl.grossProfit, 'row-subtotal')}
+        ${row('売上総利益', pl.grossProfit, 'pl-row-gross-profit')}
         ${lineRows}
         ${row('研修費（成長投資費）', trainingCombined)}
         ${row('販売管理費 計', pl.sgaTotal, 'row-highlight')}
-        ${row('営業損益', pl.operatingIncome, 'row-final')}
+        ${row('営業損益', pl.operatingIncome, 'pl-row-operating-income')}
         ${row('営業外収益', pl.nonOperatingIncome, 'row-subtotal')}
         ${row('営業外費用', pl.nonOperatingExpense, 'row-subtotal')}
-        ${row('経常損益', pl.ordinaryIncome, 'row-final')}
+        ${row('経常損益', pl.ordinaryIncome, 'pl-row-ordinary-income')}
         ${row('特別利益・損失', pl.extraordinaryItems)}
         ${row('税引前当期純損益', pl.incomeBeforeTax, 'row-subtotal')}
         ${row('法人税等', pl.corporateTax)}
-        ${row('当期純損益', pl.netIncome, 'row-final')}
+        ${row('当期純損益', pl.netIncome, 'pl-row-net-income')}
         ${row('総資産', pl.cumulativeAssets, 'row-subtotal')}
       </tbody>
     </table>
@@ -200,9 +203,21 @@ function renderMonthlyPLSection(result) {
 
 function renderSynergySection(result) {
   const bp = result.businessPlan;
+  // 目標設定ステップで「対応する事業」のチェックを外した事業は、この表にも一切表示しない
   function row(key, label, cfg) {
+    if (!cfg.enabled) return '';
     const s = bp[key];
-    return `<tr><td>${esc(label)}${cfg.enabled ? '' : '（未対応）'}</td><td>${yen(cfg.unitPrice)}</td><td>${cfg.profitRate !== undefined ? pct(cfg.profitRate) : '―'}</td><td>${pct(cfg.allocRate)}</td><td>${num(s.annualFreq)}件/年</td><td>${yen(s.annualProfit)}</td></tr>`;
+    return `<tr><td>${esc(label)}</td><td>${yen(cfg.unitPrice)}</td><td>${cfg.profitRate !== undefined ? pct(cfg.profitRate) : '―'}</td><td>${pct(cfg.allocRate)}</td><td>${num(s.annualFreq)}件/年</td><td>${yen(s.annualProfit)}</td></tr>`;
+  }
+  const rowsHtml = row('reform', 'リフォーム事業', appState.synergy.reform)
+    + row('selfBuild', '新築住宅事業（自社請負）', appState.synergy.selfBuild)
+    + row('referral', '他社建築紹介', appState.synergy.referral);
+  if (!rowsHtml) {
+    return `
+    <section class="report-section">
+      <h2><span class="num">05</span> 建築事業の利益イメージ</h2>
+      <p class="small text-muted">「目標設定」ステップで対応する建築事業が選択されていません。</p>
+    </section>`;
   }
   return `
     <section class="report-section">
@@ -211,9 +226,7 @@ function renderSynergySection(result) {
       <table class="plain">
         <thead><tr><th>事業</th><th>単価</th><th>利益率</th><th>不動産分配利益率</th><th>年間受注頻度</th><th>年間利益</th></tr></thead>
         <tbody>
-          ${row('reform', 'リフォーム事業', appState.synergy.reform)}
-          ${row('selfBuild', '新築住宅事業（自社請負）', appState.synergy.selfBuild)}
-          ${row('referral', '他社建築紹介', appState.synergy.referral)}
+          ${rowsHtml}
         </tbody>
         <tfoot><tr><td colspan="5">年間利益 合計</td><td>${yen(bp.reform.annualProfit + bp.selfBuild.annualProfit + bp.referral.annualProfit)}</td></tr></tfoot>
       </table>

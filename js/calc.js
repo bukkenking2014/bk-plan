@@ -277,10 +277,6 @@ function computeBusinessPlan(state, staff, areas, breakEven, license) {
 
   // 【その他費用】年額→月額換算まとめ（既にステージ1で計算済のため再掲のみ）
 
-  // 【インセンティブ】
-  const incentiveThresholdMonth = staff.laborCostMonth * state.incentiveRule.cutoffFactor; // 事業検討!F54
-  const incentiveRate = state.incentiveRule.incentiveRate; // 事業検討!D58
-
   // 【店舗組成費（イニシャル）】
   // 会費（協会入会金等）は免許有無に関わらず常に計上する
   const initialCostSubtotal = license.costInBusinessPlan + state.initialCost.franchiseFee + state.initialCost.membershipFee; // L53
@@ -299,7 +295,6 @@ function computeBusinessPlan(state, staff, areas, breakEven, license) {
     targetLeads, cpa, ppcBudgetMonth, ppcBudgetBoosted, adOtherTotal,
     adBudgetMonthBase, adBudgetMonthBaseTax, adBudgetMonthBoostedTax,
     reform, selfBuild, referral,
-    incentiveThresholdMonth, incentiveRate,
     initialCostSubtotal, storeSetupSubtotal, initialCostTotal, initialCostTotalTax,
     depreciationMonth, svConsultingApplies
   };
@@ -360,14 +355,13 @@ function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
   const training = Array(12).fill(oc.training);
   const consulting = range(12).map(i => oc.ppcConsulting + (i < 6 && businessPlan.svConsultingApplies ? oc.svConsulting : 0));
   const storeRunning = Array(12).fill(otherCostsAnnual.storeRunningMonth);
-  const incentive = brokerageRevenue.map(v => (v > businessPlan.incentiveThresholdMonth ? (v - businessPlan.incentiveThresholdMonth) * businessPlan.incentiveRate : 0));
   const initialSetup = zerosExceptFirst(businessPlan.initialCostTotalTax);
 
   const sgaTotal = range(12).map(i =>
     salary[i] + legalWelfare[i] + recruiting[i] + adSpend[i] + entertainment[i] + travel[i] +
     communication[i] + consumables[i] + officeSupplies[i] + equipment[i] + utilities[i] +
     dues[i] + lease[i] + insurance[i] + depreciation[i] + tax[i] + misc[i] + training[i] +
-    consulting[i] + storeRunning[i] + incentive[i]
+    consulting[i] + storeRunning[i]
   );
   const sgaTotalWithInitial = range(12).map(i => sgaTotal[i] + initialSetup[i]);
 
@@ -380,7 +374,7 @@ function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
   return {
     months: MONTHS_1, contracts, brokerageRevenue, reformRevenue, selfBuildRevenue, referralRevenue, totalRevenue,
     reformCogs, selfBuildCogs, totalCogs, grossProfit,
-    lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, incentive, initialSetup },
+    lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, initialSetup },
     sgaTotal, sgaTotalWithInitial, operatingIncome, ...extras,
     sumFirstHalf: sumRange(totalRevenue, 0, 6), sumSecondHalf: sumRange(totalRevenue, 6, 12), sumYear: sumAll(totalRevenue),
     grossProfitSumYear: sumAll(grossProfit),
@@ -465,14 +459,13 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, opening
   const training = Array(12).fill(oc.training);
   const consulting = Array(12).fill(oc.ppcConsulting); // 2年目はSVコンサル無し
   const storeRunning = Array(12).fill(otherCostsAnnual.storeRunningMonth);
-  const incentive = brokerageRevenue.map(v => (v > businessPlan.incentiveThresholdMonth ? (v - businessPlan.incentiveThresholdMonth) * businessPlan.incentiveRate : 0));
   const initialSetup = Array(12).fill(0);
 
   const sgaTotal = range(12).map(i =>
     salary[i] + legalWelfare[i] + recruiting[i] + adSpend[i] + entertainment[i] + travel[i] +
     communication[i] + consumables[i] + officeSupplies[i] + equipment[i] + utilities[i] +
     dues[i] + lease[i] + insurance[i] + depreciation[i] + tax[i] + misc[i] + training[i] +
-    consulting[i] + storeRunning[i] + incentive[i]
+    consulting[i] + storeRunning[i]
   );
   const operatingIncome = range(12).map(i => grossProfit[i] - sgaTotal[i]);
   const extras = computePLExtras(state, operatingIncome, Number(openingAssets) || 0); // 前年の赤字繰越もあり得るため0クランプしない
@@ -480,7 +473,7 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, opening
   return {
     months: MONTHS_2, contracts, brokerageRevenue, reformRevenue, selfBuildRevenue, referralRevenue, totalRevenue,
     reformCogs, selfBuildCogs, totalCogs, grossProfit,
-    lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, incentive, initialSetup },
+    lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, initialSetup },
     sgaTotal, operatingIncome, ...extras,
     sumFirstHalf: sumRange(totalRevenue, 0, 6), sumSecondHalf: sumRange(totalRevenue, 6, 12), sumYear: sumAll(totalRevenue),
     grossProfitSumYear: sumAll(grossProfit),

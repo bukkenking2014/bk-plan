@@ -27,8 +27,7 @@ const PERCENT_FIELD_PATHS = [
   'ad.cvr',
   'synergy.reform.profitRate', 'synergy.reform.allocRate', 'synergy.reform.conversionRate',
   'synergy.selfBuild.profitRate', 'synergy.selfBuild.allocRate', 'synergy.selfBuild.conversionRate',
-  'synergy.referral.allocRate', 'synergy.referral.conversionRate',
-  'incentiveRule.incentiveRate'
+  'synergy.referral.allocRate', 'synergy.referral.conversionRate'
 ];
 function fixCorruptedPercentFields(state) {
   PERCENT_FIELD_PATHS.forEach(path => {
