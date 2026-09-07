@@ -262,12 +262,14 @@ function computeBusinessPlan(state, staff, areas, breakEven, license) {
   }
 
   const reform = synergyLine(synergy.reform, breakEven.targetUsedCount, null, null, false);
-  reform.monthlyEquivalent = roundDown(reform.annualProfit / 12, -4); // H36
-  reform.cogsPerDeal = synergy.reform.unitPrice * (1 - synergy.reform.profitRate);
+  reform.monthlyEquivalent = roundDown(reform.annualProfit / 12, -4); // H36（参考表示用の按分値。実際の計上額はunitPriceそのもの）
+  reform.unitPrice = synergy.reform.unitPrice; // S36
+  reform.cogsPerDeal = synergy.reform.unitPrice * (1 - synergy.reform.profitRate); // S36*(100%-T36)
 
   const selfBuild = synergyLine(synergy.selfBuild, breakEven.targetLandCount, synergy.selfBuild.capSolo, synergy.selfBuild.capTeam, true);
-  selfBuild.quarterlyEquivalent = selfBuild.annualProfit / 4; // H37
-  selfBuild.cogsPerDeal = synergy.selfBuild.unitPrice * (1 - synergy.selfBuild.profitRate);
+  selfBuild.quarterlyEquivalent = selfBuild.annualProfit / 4; // H37（参考表示用の按分値。実際の計上額はunitPriceそのもの）
+  selfBuild.unitPrice = synergy.selfBuild.unitPrice; // S37
+  selfBuild.cogsPerDeal = synergy.selfBuild.unitPrice * (1 - synergy.selfBuild.profitRate); // S37*(100%-T37)
 
   const referral = synergyLine(synergy.referral, breakEven.targetLandCount, synergy.referral.capSolo, synergy.referral.capTeam, true);
   referral.bimonthlyEquivalent = referral.annualProfit / 6; // H38
@@ -316,10 +318,13 @@ function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
   const brokerageRevenue = contracts.map(c => c * fee);
 
   // リフォーム・自社請負・他社紹介（1年目は稼働半年想定のため限定的に計上）
+  // ExcelのPLシートでは、発生月に「按分利益（H36/D37等）が発生しているか」を判定条件としつつ、
+  // 実際に売上高へ計上される金額は単価（S36/S37）そのもの（=IF(D5>0,事業検討!$S$36,0)）。
+  // 原価（=単価×(100%-利益率)）と対で計上して初めて、差額（単価×利益率）が正味の利益として残る。
   const reformRevenue = Array(12).fill(0);
-  for (let i = 8; i <= 11; i++) reformRevenue[i] = businessPlan.reform.monthlyEquivalent; // M5:P5
+  for (let i = 8; i <= 11; i++) reformRevenue[i] = businessPlan.reform.annualFreq > 0 ? businessPlan.reform.unitPrice : 0; // M5:P5
   const selfBuildRevenue = Array(12).fill(0);
-  selfBuildRevenue[11] = businessPlan.selfBuild.perDealProfit; // P6 = 事業検討!D37（単発1件想定）
+  selfBuildRevenue[11] = businessPlan.selfBuild.annualFreq > 0 ? businessPlan.selfBuild.unitPrice : 0; // P6
   const referralRevenue = Array(12).fill(0);
   referralRevenue[8] = businessPlan.referral.perDealProfit; // M7
   referralRevenue[10] = businessPlan.referral.perDealProfit; // O7
@@ -423,9 +428,10 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, opening
   const contracts = Array(12).fill(F11);
   const brokerageRevenue = contracts.map(c => c * fee);
 
-  const reformRevenue = Array(12).fill(businessPlan.reform.monthlyEquivalent);
+  // PL1同様、按分利益が発生している月は単価そのものを売上計上し、原価（単価×(100%-利益率)）と対で計上する
+  const reformRevenue = Array(12).fill(businessPlan.reform.annualFreq > 0 ? businessPlan.reform.unitPrice : 0);
   const selfBuildRevenue = Array(12).fill(0);
-  [2, 5, 8, 11].forEach(i => (selfBuildRevenue[i] = businessPlan.selfBuild.quarterlyEquivalent));
+  [2, 5, 8, 11].forEach(i => (selfBuildRevenue[i] = businessPlan.selfBuild.annualFreq > 0 ? businessPlan.selfBuild.unitPrice : 0));
   const referralRevenue = Array(12).fill(0);
   [0, 6].forEach(i => (referralRevenue[i] = businessPlan.referral.bimonthlyEquivalent));
   if (staff.salesHeadcount > 1) {
