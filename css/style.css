@@ -35,7 +35,7 @@
      濃いめにして視線が集まるようにする（読みやすさ優先で彩度は抑えめ）。 */
   --pl-revenue-bg: #dbe9fb; --pl-revenue-fg: #163f74; --pl-revenue-total-bg: #a9cef3; --pl-revenue-total-fg: #0c2c52;
   --pl-gross-bg: #dcf3e6; --pl-gross-fg: #146443; --pl-gross-total-bg: #a8e4c4; --pl-gross-total-fg: #0b4530;
-  --pl-operating-bg: #fbe8c2; --pl-operating-fg: #7a4b00; --pl-operating-total-bg: #f0c165; --pl-operating-total-fg: #5c3900;
+  --pl-operating-bg: #d7f0f2; --pl-operating-fg: #0c4f57; --pl-operating-total-bg: #9fd9df; --pl-operating-total-fg: #073338;
   --pl-ordinary-bg: #e8ddf7; --pl-ordinary-fg: #4a2f82; --pl-ordinary-total-bg: #c7abed; --pl-ordinary-total-fg: #33205c;
   --pl-net-bg: #f6dcd6; --pl-net-fg: #8a3320; --pl-net-total-bg: #e8a794; --pl-net-total-fg: #632012;
 }
@@ -70,7 +70,7 @@
     color-scheme: dark;
     --pl-revenue-bg: #1d3c63; --pl-revenue-fg: #bcdcff; --pl-revenue-total-bg: #2c5a91; --pl-revenue-total-fg: #eef6ff;
     --pl-gross-bg: #113f2d; --pl-gross-fg: #a9eecb; --pl-gross-total-bg: #1c6a49; --pl-gross-total-fg: #e8fff1;
-    --pl-operating-bg: #5a4212; --pl-operating-fg: #ffdd9c; --pl-operating-total-bg: #7c5c1c; --pl-operating-total-fg: #fff3d9;
+    --pl-operating-bg: #123c40; --pl-operating-fg: #a9e8ee; --pl-operating-total-bg: #1c5c62; --pl-operating-total-fg: #e5f8fa;
     --pl-ordinary-bg: #382758; --pl-ordinary-fg: #ddccff; --pl-ordinary-total-bg: #4f3a7c; --pl-ordinary-total-fg: #f0e7ff;
     --pl-net-bg: #542720; --pl-net-fg: #ffc9b8; --pl-net-total-bg: #7a3a2c; --pl-net-total-fg: #ffe3da;
   }
@@ -104,7 +104,7 @@
   color-scheme: dark;
   --pl-revenue-bg: #1d3c63; --pl-revenue-fg: #bcdcff; --pl-revenue-total-bg: #2c5a91; --pl-revenue-total-fg: #eef6ff;
   --pl-gross-bg: #113f2d; --pl-gross-fg: #a9eecb; --pl-gross-total-bg: #1c6a49; --pl-gross-total-fg: #e8fff1;
-  --pl-operating-bg: #5a4212; --pl-operating-fg: #ffdd9c; --pl-operating-total-bg: #7c5c1c; --pl-operating-total-fg: #fff3d9;
+  --pl-operating-bg: #123c40; --pl-operating-fg: #a9e8ee; --pl-operating-total-bg: #1c5c62; --pl-operating-total-fg: #e5f8fa;
   --pl-ordinary-bg: #382758; --pl-ordinary-fg: #ddccff; --pl-ordinary-total-bg: #4f3a7c; --pl-ordinary-total-fg: #f0e7ff;
   --pl-net-bg: #542720; --pl-net-fg: #ffc9b8; --pl-net-total-bg: #7a3a2c; --pl-net-total-fg: #ffe3da;
 }
@@ -137,7 +137,7 @@
   color-scheme: light;
   --pl-revenue-bg: #dbe9fb; --pl-revenue-fg: #163f74; --pl-revenue-total-bg: #a9cef3; --pl-revenue-total-fg: #0c2c52;
   --pl-gross-bg: #dcf3e6; --pl-gross-fg: #146443; --pl-gross-total-bg: #a8e4c4; --pl-gross-total-fg: #0b4530;
-  --pl-operating-bg: #fbe8c2; --pl-operating-fg: #7a4b00; --pl-operating-total-bg: #f0c165; --pl-operating-total-fg: #5c3900;
+  --pl-operating-bg: #d7f0f2; --pl-operating-fg: #0c4f57; --pl-operating-total-bg: #9fd9df; --pl-operating-total-fg: #073338;
   --pl-ordinary-bg: #e8ddf7; --pl-ordinary-fg: #4a2f82; --pl-ordinary-total-bg: #c7abed; --pl-ordinary-total-fg: #33205c;
   --pl-net-bg: #f6dcd6; --pl-net-fg: #8a3320; --pl-net-total-bg: #e8a794; --pl-net-total-fg: #632012;
 }
