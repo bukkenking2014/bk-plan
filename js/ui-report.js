@@ -9,6 +9,7 @@ function renderReport() {
   main.innerHTML = `
     <div class="toolbar no-print">
       <button class="btn-outline" id="backToWizard">← 入力に戻る</button>
+      <button class="btn-outline" id="excelBtn">📊 Excelでダウンロード</button>
       <button class="btn-gold" id="printBtn">🖨 印刷 / PDFとして保存</button>
     </div>
     ${renderCover()}
@@ -24,6 +25,7 @@ function renderReport() {
   `;
   document.getElementById('backToWizard').onclick = () => setActiveView('wizard');
   document.getElementById('printBtn').onclick = () => printReport();
+  document.getElementById('excelBtn').onclick = () => exportToExcel();
   main.querySelectorAll('details.collapsible').forEach(d => {});
 }
 
