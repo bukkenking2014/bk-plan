@@ -650,3 +650,11 @@ details.collapsible summary { cursor: pointer; font-weight: 700; color: var(--co
   .field, .field.field-numeric, .field.field-narrow { flex: 1 1 100%; max-width: 100%; min-width: 0; }
   .field input[type=date] { max-width: 100%; }
 }
+
+/* スプレッドシート欄：主ボタン行・手動手順の折りたたみ */
+.sheet-main-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 8px; }
+.sheet-manual { margin-top: 12px; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-surface); }
+.sheet-manual > summary { cursor: pointer; padding: 10px 14px; font-size: .9em; font-weight: 600; color: var(--color-ink-soft); }
+.sheet-manual-body { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.sheet-manual-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.sheet-key-input { flex: 0 1 200px; min-width: 0; }

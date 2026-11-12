@@ -113,42 +113,170 @@ function sheetUrlValid(u) {
   return /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[\w-]+/.test(String(u || '').trim());
 }
 
+// ---- 会社名 → ファイル名・フォルダ名（コンパクトに） ----
+// 「株式会社」「有限会社」等と空白・記号を除き、20文字までにする。例：株式会社〇〇不動産 → 〇〇不動産
+function compactCompanyName(name) {
+  let n = String(name || '').replace(/[\s　]+/g, '');
+  n = n.replace(/株式会社|有限会社|合同会社|合資会社|合名会社|一般社団法人|（株）|\(株\)|㈱|（有）|\(有\)|㈲/g, '');
+  n = n.replace(/[\\\/:*?"<>|]/g, '');
+  return n.slice(0, 20);
+}
+function sheetFolderName() {
+  const n = appState.meta && appState.meta.companyName;
+  return isPlaceholderCompany(n) ? '' : compactCompanyName(n);
+}
+function sheetFileName() { const n = sheetFolderName(); return n ? n + '_事業計画' : ''; }
+function isPlaceholderCompany(name) { return !String(name || '').trim() || /[〇○]{2,}/.test(String(name)); }
+
+// ---- 自動作成（Apps Script：SheetFactory.gs）の接続設定 ----
+// 配布版では SHEET_FACTORY_URL にデプロイしたウェブアプリのURLを直接書いておくと、全員がそのまま使える。
+// 空のままでも、画面の「連携設定」から各自のブラウザに登録できる。
+const SHEET_FACTORY_URL = '';
+const SHEET_FACTORY_KEY = 'bkPlanSimulator.sheetFactory';
+function getSheetFactory() {
+  let o = {};
+  try { o = JSON.parse(localStorage.getItem(SHEET_FACTORY_KEY) || '{}') || {}; } catch (e) { o = {}; }
+  return { url: (o.url || SHEET_FACTORY_URL || '').trim(), key: o.key || '' };
+}
+function saveSheetFactory(url, key) {
+  try { localStorage.setItem(SHEET_FACTORY_KEY, JSON.stringify({ url: (url || '').trim(), key: key || '' })); } catch (e) { /* noop */ }
+}
+function callSheetFactory(payload) {
+  const f = getSheetFactory();
+  if (!f.url) return Promise.reject(new Error('自動作成の連携先が未設定です'));
+  // text/plain にすると、ブラウザの事前確認（CORSプリフライト）なしで送れる
+  return fetch(f.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: f.key }, payload)) })
+    .then(r => r.json())
+    .then(j => { if (!j.ok) throw new Error(j.error || '失敗しました'); return j; });
+}
+
+function createCompanySheet() {
+  const name = (appState.meta && appState.meta.companyName) || '';
+  if (isPlaceholderCompany(name)) {
+    alert('先に「① 事業計画入力 → 基本情報」で会社名を入力してください。');
+    return;
+  }
+  const result = runFullCalculation(appState);
+  const btn = document.getElementById('sheetCreateBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '作成中…（10〜20秒かかります）'; }
+  callSheetFactory({
+    action: 'create', companyName: name, folderName: sheetFolderName(), fileName: sheetFileName(),
+    rows: buildSheetLinkRows(appState, result)
+  }).then(j => {
+    appState.sheets = Object.assign({}, appState.sheets, { url: j.url, folderUrl: j.folderUrl });
+    saveState();
+    renderReport();
+    alert(j.existed
+      ? '同じ名前のスプレッドシートが既にあったため、それを開けるようにしました（連動データは最新に更新しました）。'
+      : 'フォルダ「' + j.folderName + '」にスプレッドシート「' + j.name + '」を作成しました。\n会社データを保存すると、次回から事業計画書のボタンで開けます。');
+  }).catch(err => {
+    alert('作成できませんでした：' + err.message);
+    renderReport();
+  });
+}
+
+function updateSheetValues() {
+  const m = /\/d\/([\w-]+)/.exec((appState.sheets && appState.sheets.url) || '');
+  if (!m) return;
+  const result = runFullCalculation(appState);
+  const btn = document.getElementById('sheetUpdateBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '更新中…'; }
+  callSheetFactory({ action: 'update', sheetId: m[1], rows: buildSheetLinkRows(appState, result) })
+    .then(() => { alert('スプレッドシートの「連動データ」を最新の数字に更新しました。'); renderReport(); })
+    .catch(err => { alert('更新できませんでした：' + err.message); renderReport(); });
+}
+
 function renderSheetLinksSection() {
-  const url = ((appState.sheets && appState.sheets.url) || '').trim();
+  const sh = appState.sheets || {};
+  const url = (sh.url || '').trim();
+  const folderUrl = (sh.folderUrl || '').trim();
   const ok = sheetUrlValid(url);
+  const factory = getSheetFactory();
+  const auto = !!factory.url;
   const cards = SHEET_TABS.map(t => `
     <li class="sheet-card">
       <div class="sheet-card-name">${esc(t.name)}</div>
       <div class="sheet-card-desc">${esc(t.desc)}</div>
     </li>`).join('');
+  const fname = sheetFileName();
+  const templateCopy = `${esc(SHEET_TEMPLATE_URL.replace(/\/(edit|view)?(#.*|\?.*)?$/, ''))}/copy`;
   return `
     <section class="report-section sheet-links">
       <h2>詳細資料（スプレッドシート）</h2>
-      <p class="small">下の4つは、数式つきのGoogleスプレッドシートで確認・編集できます。</p>
+      <p class="small">下の4つは、数式つきのGoogleスプレッドシートで確認・編集できます。会社ごとにGoogleドライブの「事業計画書／会社名」フォルダへ保管します。</p>
       <ul class="sheet-cards">${cards}</ul>
       <div class="sheet-actions no-print">
-        ${ok
-          ? `<a class="btn-gold" id="sheetOpenBtn" href="${esc(url)}" target="_blank" rel="noopener">📑 スプレッドシートを開く</a>`
-          : `<span class="small">この会社のスプレッドシートはまだ登録されていません。</span>`}
-        ${SHEET_TEMPLATE_URL
-          ? `<a class="btn-outline" id="sheetCopyTemplateBtn" href="${esc(SHEET_TEMPLATE_URL.replace(/\/(edit|view)?(#.*|\?.*)?$/, ''))}/copy" target="_blank" rel="noopener">① 雛型をコピーして作成</a>` : ''}
-        <button type="button" class="btn-outline" id="sheetCopyDataBtn">② 連動データをコピー</button>
-        <div class="sheet-url-row">
-          <label for="sheetUrlInput" class="small">③ 作成したスプレッドシートのURLを登録</label>
-          <input type="url" id="sheetUrlInput" class="sheet-url-input" placeholder="https://docs.google.com/spreadsheets/d/…" value="${esc(url)}">
-          <button type="button" class="btn-outline" id="sheetUrlSaveBtn">登録</button>
-        </div>
-        <p class="small sheet-howto">使い方：①でコピーを作る → ②でデータをコピーし、コピー先の「連動データ」シートのA1に貼り付け → ③でURLを登録（会社データを保存すると、次回から事業計画書のボタンで開けます）。</p>
+        ${ok ? `
+          <div class="sheet-main-actions">
+            <a class="btn-gold" id="sheetOpenBtn" href="${esc(url)}" target="_blank" rel="noopener">📑 スプレッドシートを開く</a>
+            ${folderUrl ? `<a class="btn-outline" id="sheetFolderBtn" href="${esc(folderUrl)}" target="_blank" rel="noopener">📂 会社フォルダを開く</a>` : ''}
+            ${auto ? `<button type="button" class="btn-outline" id="sheetUpdateBtn">🔄 連動データを最新に更新</button>` : ''}
+          </div>` : (auto ? `
+          <div class="sheet-main-actions">
+            <button type="button" class="btn-gold" id="sheetCreateBtn">📁 会社フォルダを作ってスプレッドシートを作成</button>
+          </div>
+          <p class="small">作成先：Googleドライブ「事業計画書」→「${esc(sheetFolderName() || '会社名')}」／ ファイル名：${esc(fname || '会社名_事業計画')}</p>` : `
+          <p class="small">この会社のスプレッドシートはまだ登録されていません。</p>`)}
+
+        <details class="sheet-manual" ${!ok && !auto ? 'open' : ''}>
+          <summary>${auto ? '手動で作る・URLを登録する場合' : '作り方（手動）'}</summary>
+          <div class="sheet-manual-body">
+            <div class="sheet-manual-row">
+              <a class="btn-outline" id="sheetCopyTemplateBtn" href="${templateCopy}" target="_blank" rel="noopener">① 雛型をコピーして作成</a>
+              <span class="small">コピー画面の名前欄に、次のファイル名を入れてください：</span>
+              <button type="button" class="btn-outline btn-sm" id="sheetCopyNameBtn" ${fname ? '' : 'disabled'}>${esc(fname || '（会社名を入力してください）')}　📋</button>
+            </div>
+            <div class="sheet-manual-row">
+              <button type="button" class="btn-outline" id="sheetCopyDataBtn">② 連動データをコピー</button>
+              <span class="small">コピー先の「連動データ」シートのA1に貼り付け</span>
+            </div>
+            <div class="sheet-url-row">
+              <label for="sheetUrlInput" class="small">③ 作成したスプレッドシートのURLを登録</label>
+              <input type="url" id="sheetUrlInput" class="sheet-url-input" placeholder="https://docs.google.com/spreadsheets/d/…" value="${esc(url)}">
+              <button type="button" class="btn-outline" id="sheetUrlSaveBtn">登録</button>
+            </div>
+            <p class="small sheet-howto">ドライブでは「事業計画書」フォルダの中に会社名のフォルダを作り、そこへ入れてください。会社データを保存すると、次回から事業計画書のボタンで開けます。</p>
+          </div>
+        </details>
+
+        <details class="sheet-manual">
+          <summary>自動作成の連携設定${auto ? '（設定済み）' : '（未設定）'}</summary>
+          <div class="sheet-manual-body">
+            <p class="small">管理者が Apps Script（gas-backend/SheetFactory.gs）をデプロイして発行したURLを登録すると、ボタン1つで会社フォルダとスプレッドシートが作られます。設定方法は gas-backend/README_GAS_SETUP.md を参照してください。</p>
+            <div class="sheet-url-row">
+              <input type="url" id="sheetFactoryUrl" class="sheet-url-input" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(factory.url)}">
+              <input type="text" id="sheetFactoryKey" class="sheet-key-input" placeholder="合言葉（設定した場合のみ）" value="${esc(factory.key)}" autocomplete="off">
+              <button type="button" class="btn-outline" id="sheetFactorySaveBtn">保存</button>
+            </div>
+          </div>
+        </details>
       </div>
       ${ok ? `<p class="print-only small">スプレッドシート：${esc(url)}</p>` : ''}
     </section>`;
 }
 
 function bindSheetLinks() {
-  const copyBtn = document.getElementById('sheetCopyDataBtn');
-  if (copyBtn) copyBtn.onclick = copySheetLinkData;
-  const saveBtn = document.getElementById('sheetUrlSaveBtn');
-  if (saveBtn) saveBtn.onclick = () => {
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
+  on('sheetCopyDataBtn', copySheetLinkData);
+  on('sheetCreateBtn', createCompanySheet);
+  on('sheetUpdateBtn', updateSheetValues);
+  on('sheetCopyNameBtn', () => {
+    const t = sheetFileName();
+    if (!t) return;
+    const done = () => alert('ファイル名「' + t + '」をコピーしました。コピー画面の名前欄に貼り付けてください。');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, () => alert(t));
+    else alert(t);
+  });
+  on('sheetFactorySaveBtn', () => {
+    const u = (document.getElementById('sheetFactoryUrl').value || '').trim();
+    if (u && !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) {
+      alert('Apps Script のウェブアプリURL（https://script.google.com/macros/s/…/exec）を入力してください。');
+      return;
+    }
+    saveSheetFactory(u, (document.getElementById('sheetFactoryKey').value || '').trim());
+    renderReport();
+  });
+  on('sheetUrlSaveBtn', () => {
     const v = (document.getElementById('sheetUrlInput').value || '').trim();
     if (v && !sheetUrlValid(v)) {
       alert('GoogleスプレッドシートのURL（https://docs.google.com/spreadsheets/d/…）を入力してください。');
@@ -157,5 +285,5 @@ function bindSheetLinks() {
     appState.sheets = Object.assign({}, appState.sheets, { url: v });
     saveState();
     renderReport();
-  };
+  });
 }
