@@ -184,6 +184,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 function serveStatic(req, res, url) {
   let rel = decodeURIComponent(url.pathname);
   if (rel === '/') rel = '/index.html';
+  if (rel === '/favicon.ico') rel = '/img/favicon.ico'; // ブラウザが既定で取りに来るパス
   // 公開するのは index.html / css / js のみ（server.js やデータ置き場は配信しない）
   if (!(rel === '/index.html' || /^\/(css|js|img)\/[\w.\-]+$/.test(rel))) { res.writeHead(404); return res.end('Not found'); }
   const file = path.join(ROOT, rel);
