@@ -18,6 +18,11 @@ function setActiveView(view) {
   window.scrollTo(0, 0);
 }
 
+// URLに ?view=report 等が付いていれば、その画面から開く（事業計画書のURL共有・PDF化の確認用）
+function initialView() {
+  const v = new URLSearchParams(location.search).get('view');
+  return VIEW_RENDERERS[v] ? v : 'wizard';
+}
 function bootApp() {
   // server.js 経由（Railway等）で開かれているかを先に判定し、会社別保存のUI/読込先を切り替える
   const detect = typeof detectServerMode === 'function' ? detectServerMode() : Promise.resolve(false);
@@ -54,11 +59,11 @@ function startApp() {
         const btn = document.getElementById('cloudLoadFailContinueBtn');
         if (btn) btn.onclick = () => setActiveView('wizard');
       } else {
-        setActiveView('wizard');
+        setActiveView(initialView());
       }
     });
   } else {
-    setActiveView('wizard');
+    setActiveView(initialView());
   }
 }
 if (document.readyState === 'loading') {

@@ -3,6 +3,9 @@
  * 画面共通のフォーマット・入力バインディングヘルパー。
  */
 
+// ロゴ画像のパス（単一ファイル版ビルドではdata URIに置き換えられる）
+const LOGO_SRC = 'img/logo.png';
+
 function yen(n) {
   if (n === null || n === undefined || isNaN(n)) return '―';
   return Math.round(n).toLocaleString('ja-JP') + '円';

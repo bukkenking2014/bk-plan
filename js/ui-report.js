@@ -10,7 +10,7 @@ function renderReport() {
     <div class="toolbar no-print">
       <button class="btn-outline" id="backToWizard">← 入力に戻る</button>
       <button class="btn-outline" id="excelBtn">📊 Excelでダウンロード</button>
-      <button class="btn-gold" id="printBtn">🖨 印刷 / PDFとして保存</button>
+      <button class="btn-gold" id="printBtn" title="開いた画面で「PDFに保存」を選ぶとPDFファイルになります">📄 PDFで保存 / 印刷</button>
     </div>
     ${renderCover()}
     ${renderBreakEvenChartSection(result)}
@@ -56,8 +56,10 @@ function printReport() {
   const styleTags = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(el => el.outerHTML).join('\n');
   const theme = document.documentElement.getAttribute('data-theme') || '';
   const content = document.getElementById('appMain').innerHTML;
+  // 「PDFに保存」時の既定のファイル名になる
+  const printTitle = '事業計画書_' + ((appState.meta.companyName || '').replace(/[\\/:*?"<>|\s]+/g, '') || '会社名未入力');
   printWin.document.open();
-  printWin.document.write(`<!doctype html><html${theme ? ` data-theme="${theme}"` : ''}><head><meta charset="utf-8"><base href="${document.baseURI}"><title>事業計画書</title>${styleTags}</head><body><main class="app-main">${content}</main></body></html>`);
+  printWin.document.write(`<!doctype html><html${theme ? ` data-theme="${theme}"` : ''}><head><meta charset="utf-8"><base href="${document.baseURI}"><title>${esc(printTitle)}</title>${styleTags}</head><body><main class="app-main">${content}</main></body></html>`);
   printWin.document.close();
   // <link>で外部CSS（css/style.css）を読み込むデプロイ形態では、読み込み完了前に
   // 印刷してしまうと無装飾で出力されるため、loadイベントを待ってから印刷する
@@ -73,9 +75,10 @@ function renderCover() {
   const m = appState.meta;
   return `
     <div class="report-cover">
-      <div class="kicker">BUKKENOH BUSINESS PLAN</div>
+      <img class="cover-logo" src="${LOGO_SRC}" alt="物件王">
+      <div class="kicker">事業計画検討書</div>
       <h1>${esc(m.companyName || '（会社名未入力）')} 様</h1>
-      <div class="meta">事業計画検討書　作成日：${esc(m.createdAt)}${m.openDate ? `　／　オープン予定日：${esc(m.openDate)}` : ''}</div>
+      <div class="meta">作成日：${esc(m.createdAt)}${m.openDate ? `　／　オープン予定日：${esc(m.openDate)}` : ''}</div>
     </div>`;
 }
 
@@ -120,7 +123,8 @@ function renderSimplePLSection(result) {
   const sy = appState.synergy;
   function block(title, y) {
     return `
-      <table class="plain">
+      <table class="plain simple-pl">
+        <colgroup><col style="width:46%"><col style="width:18%"><col style="width:36%"></colgroup>
         <thead><tr><th colspan="3">${esc(title)}</th></tr><tr><th>科目</th><th>件数</th><th>金額</th></tr></thead>
         <tbody>
           <tr><td>仲介手数料</td><td>${num(y.brokerage.count)}件</td><td>${yen(y.brokerage.amount)}</td></tr>
@@ -153,7 +157,8 @@ function monthlyPLTable(pl) {
   ];
   const monthHeader = pl.months.map(m => `<th>${m}</th>`).join('');
   // 万円単位・整数表示にして列数の多い月次PLを極力コンパクトにする（表全体はヘッダーに単位：万円と明記）
-  function row(label, arr, cls) { return `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(label)}</td>${arr.map(v => `<td>${manUnitAcct(v)}</td>`).join('')}<td>${manUnitAcct(sumAll(arr))}</td></tr>`; }
+  // 合計列：通常は12か月の合計。総資産だけは累計値なので、足し合わせずに期末の残高を出す
+  function row(label, arr, cls, closing) { return `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(label)}</td>${arr.map(v => `<td>${manUnitAcct(v)}</td>`).join('')}<td>${manUnitAcct(closing ? arr[arr.length - 1] : sumAll(arr))}</td></tr>`; }
   function countRow(label, arr) { return `<tr><td>${esc(label)}</td>${arr.map(v => `<td>${num(v)}件</td>`).join('')}<td>${num(sumAll(arr))}件</td></tr>`; }
   const lineRows = lineLabels.map(([key, label]) => row(label, pl.lines[key])).join('');
   // 研修費（成長投資費）＝研修費＋コンサル費（SV,PPC）を合算した1行で表示（入力を1項目に統一したのに合わせる）
@@ -185,7 +190,7 @@ function monthlyPLTable(pl) {
         ${row('税引前当期純損益', pl.incomeBeforeTax, 'row-subtotal')}
         ${row('法人税等', pl.corporateTax)}
         ${row('当期純損益', pl.netIncome, 'pl-row-net-income')}
-        ${row('総資産', pl.cumulativeAssets, 'row-subtotal')}
+        ${row('総資産（期末残高）', pl.cumulativeAssets, 'row-subtotal', true)}
       </tbody>
     </table>
     </div>`;
@@ -193,12 +198,12 @@ function monthlyPLTable(pl) {
 
 function renderMonthlyPLSection(result) {
   return `
-    <section class="report-section">
+    <section class="report-section pl-monthly">
       <h2><span class="num">04</span> 月次P&L</h2>
       <p class="small text-muted">金額は万円単位です。横にスクロールしても科目名は左端に固定表示されます。仲介手数料・建築費（リフォーム／自社請負）・紹介料（他社紹介）は科目名を色分けしています。</p>
       <h3>PL（1年目）月次詳細</h3>
       ${monthlyPLTable(result.pl1)}
-      <h3>PL（2年目以降）月次詳細</h3>
+      <h3 class="pl-second">PL（2年目以降）月次詳細</h3>
       ${monthlyPLTable(result.pl2)}
     </section>`;
 }

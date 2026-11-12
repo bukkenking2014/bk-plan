@@ -151,8 +151,8 @@ function renderBreakEvenBarChart(months, cumulativeProfit, opts) {
   // 黒字化（営業損益の累計が初めてプラスに転じる）月にマーカーを付ける
   const breakEvenIdx = cumulativeProfit.findIndex(v => v > 0);
   const breakEvenMarker = breakEvenIdx >= 0 ? `
-    <line x1="${padL + breakEvenIdx * groupW + groupW / 2}" y1="${padT}" x2="${padL + breakEvenIdx * groupW + groupW / 2}" y2="${H - padB}" stroke="var(--color-gold-strong)" stroke-width="1.5" stroke-dasharray="4,3" />
-    <text x="${padL + breakEvenIdx * groupW + groupW / 2}" y="${padT - 10}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--color-gold-strong)">黒字化：${esc(months[breakEvenIdx])}</text>` : '';
+    <line x1="${padL + breakEvenIdx * groupW + groupW / 2}" y1="${padT}" x2="${padL + breakEvenIdx * groupW + groupW / 2}" y2="${H - padB}" stroke="var(--color-ink-soft)" stroke-width="1.5" stroke-dasharray="4,3" />
+    <text x="${padL + breakEvenIdx * groupW + groupW / 2}" y="${padT - 10}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--color-ink)">黒字化：${esc(months[breakEvenIdx])}</text>` : '';
 
   const zeroLine = `<line x1="${padL}" y1="${yZero}" x2="${W - padR}" y2="${yZero}" stroke="${CHART_COLORS.textStrong}" stroke-width="1.2" />`;
 
@@ -173,7 +173,7 @@ function renderBreakEvenBarChart(months, cumulativeProfit, opts) {
         ${xLabels}
       </svg>
       ${legend}
-      <div id="breakEvenBarValue" class="chart-tap-value">棒をタップ／クリックすると、その月の金額が表示されます</div>
+      <div id="breakEvenBarValue" class="chart-tap-value no-print">棒をタップ／クリックすると、その月の金額が表示されます</div>
     </div>`;
 }
 
@@ -200,7 +200,7 @@ function showBreakEvenBarValue(rectEl, month, valueText) {
     boxX = Math.max(2, Math.min(boxX, vb.width - boxW - 2));
     const boxY = Math.max(2, topY - boxH - 14);
     tip.innerHTML = `
-      <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="8" fill="#1a1a1a" stroke="var(--color-gold)" stroke-width="2.5"></rect>
+      <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="8" fill="#1a1a1a" stroke="var(--color-navy)" stroke-width="2.5"></rect>
       <text x="${boxX + boxW / 2}" y="${boxY + 27}" text-anchor="middle" font-size="17" fill="#cfd3d8">${esc(month)}</text>
       <text x="${boxX + boxW / 2}" y="${boxY + 52}" text-anchor="middle" font-size="23" font-weight="700" fill="#fff">${esc(valueText)}</text>`;
   }

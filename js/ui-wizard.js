@@ -200,7 +200,7 @@ function previewAreas(result) {
         <div class="preview-stat"><div class="label">加重平均 手数料/件</div><div class="value">${man(a.avgFeeManOverall)}</div></div>
         <div class="preview-stat"><div class="label">土地／中古系／新築 構成比</div><div class="value" style="font-size:1em">${pct(a.landRatio,0)} / ${pct(a.usedRatio,0)} / ${pct(a.newRatio,0)}</div></div>
       </div>
-      <h4 style="margin:16px 0 4px;color:var(--color-gold);font-size:.92em">種別ごとの合計件数・金額（全エリア合計）</h4>
+      <h4 style="margin:16px 0 4px;color:#fff;font-size:.92em">種別ごとの合計件数・金額（全エリア合計）</h4>
       <table class="mini-table">
         <thead><tr><th>種別</th><th>合計件数</th><th>合計金額</th></tr></thead>
         <tbody>${typeRows}</tbody>
@@ -216,7 +216,7 @@ function staffGroupHtml(groupKey, groupLabel, list, note) {
     <div class="repeat-item" style="padding:10px 14px;">
       ${list.length > 1 ? `<button class="remove-btn" data-remove-staff="${groupKey}:${idx}">✕</button>` : ''}
       <div class="field-row" style="margin-bottom:0">
-        ${fieldNumber(`${groupLabel}${list.length > 1 ? idx + 1 : ''} 給与`, `staff.${groupKey}.${idx}.salary`, p.salary, { suffix: '円/月' })}
+        ${fieldNumber(`${list.length > 1 ? `${idx + 1}人目　` : ''}給与`, `staff.${groupKey}.${idx}.salary`, p.salary, { suffix: '円/月' })}
       </div>
     </div>`).join('');
   return `

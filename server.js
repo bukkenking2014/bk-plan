@@ -185,7 +185,7 @@ function serveStatic(req, res, url) {
   let rel = decodeURIComponent(url.pathname);
   if (rel === '/') rel = '/index.html';
   // 公開するのは index.html / css / js のみ（server.js やデータ置き場は配信しない）
-  if (!(rel === '/index.html' || /^\/(css|js)\/[\w.\-]+$/.test(rel))) { res.writeHead(404); return res.end('Not found'); }
+  if (!(rel === '/index.html' || /^\/(css|js|img)\/[\w.\-]+$/.test(rel))) { res.writeHead(404); return res.end('Not found'); }
   const file = path.join(ROOT, rel);
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404); return res.end('Not found'); }

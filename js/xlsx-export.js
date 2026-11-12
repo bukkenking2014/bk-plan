@@ -82,7 +82,7 @@ function XlsxStyles() {
 XlsxStyles.prototype.fontId = function (p) {
   const key = JSON.stringify([!!p.bold, p.color || '', p.size || 11]);
   if (this.map.font[key] === undefined) {
-    this.fonts.push(`<font>${p.bold ? '<b/>' : ''}<sz val="${p.size || 11}"/><color rgb="FF${p.color || '000000'}"/><name val="Yu Gothic"/><family val="2"/></font>`);
+    this.fonts.push(`<font>${p.bold ? '<b/>' : ''}<sz val="${p.size || 11}"/><color rgb="FF${p.color || '374141'}"/><name val="Yu Gothic"/><family val="2"/></font>`);
     this.map.font[key] = this.fonts.length - 1;
   }
   return this.map.font[key];
@@ -129,7 +129,7 @@ XlsxSheet.prototype.set = function (r, c, v, style, f) {
   if (r > this.maxR) this.maxR = r;
   if (c > this.maxC) this.maxC = c;
 };
-XlsxSheet.prototype.xml = function () {
+XlsxSheet.prototype.xml = function (withDrawing) {
   const rowsXml = Object.keys(this.rows).map(Number).sort((a, b) => a - b).map(r => {
     const cells = Object.keys(this.rows[r]).map(Number).sort((a, b) => a - b).map(c => {
       const cell = this.rows[r][c];
@@ -149,7 +149,7 @@ XlsxSheet.prototype.xml = function () {
     ? `<pane xSplit="${this.freeze.c - 1}" ySplit="${this.freeze.r - 1}" topLeftCell="${xlsxCol(this.freeze.c)}${this.freeze.r}" activePane="bottomRight" state="frozen"/>`
     : '';
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:${xlsxCol(this.maxC)}${this.maxR}"/><sheetViews><sheetView workbookViewId="0" showGridLines="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>${cols ? `<cols>${cols}</cols>` : ''}<sheetData>${rowsXml}</sheetData><pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:${xlsxCol(this.maxC)}${this.maxR}"/><sheetViews><sheetView workbookViewId="0" showGridLines="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>${cols ? `<cols>${cols}</cols>` : ''}<sheetData>${rowsXml}</sheetData><pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>${withDrawing ? '<drawing r:id="rId1"/>' : ''}</worksheet>`;
 };
 
 /* ---------------- 共通スタイル ---------------- */
@@ -254,7 +254,7 @@ function xlsxMonthlyPL(book, name, title, pl, sy, opening) {
 }
 
 /* ---------------- ブック組み立て ---------------- */
-function XlsxBook() { this.styles = new XlsxStyles(); this.sheets = []; }
+function XlsxBook() { this.styles = new XlsxStyles(); this.sheets = []; this.logo = null; }
 XlsxBook.prototype.addSheet = function (name) {
   const s = new XlsxSheet(name, this.styles);
   this.sheets.push(s);
@@ -264,7 +264,7 @@ XlsxBook.prototype.build = function () {
   const n = this.sheets.length;
   const files = [
     { name: '[Content_Types].xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${this.sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>` },
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${this.logo ? '<Default Extension="png" ContentType="image/png"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ''}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${this.sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>` },
     { name: '_rels/.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
     { name: 'xl/workbook.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -272,7 +272,20 @@ XlsxBook.prototype.build = function () {
     { name: 'xl/_rels/workbook.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${this.sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` }
   ];
-  const sheetFiles = this.sheets.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: s.xml() }));
+  const sheetFiles = this.sheets.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: s.xml(i === 0 && !!this.logo) }));
+  if (this.logo) {
+    // 1枚目（サマリー）の左上にロゴを配置（幅約190px、縦横比は元画像のまま）
+    const cx = 190 * 9525, cy = Math.round(cx * this.logo.h / this.logo.w);
+    sheetFiles.push(
+      { name: 'xl/worksheets/_rels/sheet1.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>` },
+      { name: 'xl/drawings/drawing1.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>38100</xdr:rowOff></xdr:from><xdr:ext cx="${cx}" cy="${cy}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="物件王ロゴ" descr="物件王"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>` },
+      { name: 'xl/drawings/_rels/drawing1.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>` },
+      { name: 'xl/media/image1.png', data: this.logo.bytes }
+    );
+  }
   // styles.xml はシート生成後（スタイル登録後）に確定させる
   files.push({ name: 'xl/styles.xml', data: this.styles.xml() });
   return xlsxZip(files.concat(sheetFiles));
@@ -284,10 +297,10 @@ function xlsxSummarySheet(book, state, result) {
   const be = result.breakEven, st = result.staff, s = result.summary, sy = state.synergy;
   sh.widths[1] = 30; [2, 3, 4, 5].forEach(c => { sh.widths[c] = 18; });
   const m = state.meta;
-  sh.set(1, 1, `${m.companyName || '（会社名未入力）'} 様　事業計画検討書`, XL.title);
-  sh.set(2, 1, `作成日：${m.createdAt || ''}${m.openDate ? `　／　オープン予定日：${m.openDate}` : ''}　（単位：円）`, XL.note);
+  sh.set(3, 1, `${m.companyName || '（会社名未入力）'} 様　事業計画検討書`, XL.title);
+  sh.set(4, 1, `作成日：${m.createdAt || ''}${m.openDate ? `　／　オープン予定日：${m.openDate}` : ''}　（単位：円）`, XL.note);
 
-  let r = 4;
+  let r = 6;
   sh.set(r, 1, '損益分岐点と必要契約件数', XL.section); for (let c = 2; c <= 5; c++) sh.set(r, c, '', XL.section); r++;
   const kv = (label, v, fmt, bold) => {
     sh.set(r, 1, label, bold ? XL.labelB : XL.label);
@@ -428,8 +441,9 @@ function xlsxInputSheet(book, state, result) {
 }
 
 /* ---------------- 公開API ---------------- */
-function buildExcelBytes(state, result) {
+function buildExcelBytes(state, result, logo) {
   const book = new XlsxBook();
+  if (logo) book.logo = logo;
   xlsxSummarySheet(book, state, result);
   const p1 = xlsxMonthlyPL(book, '月次PL_1年目', 'PL（1年目）月次詳細', result.pl1, state.synergy, null);
   xlsxMonthlyPL(book, '月次PL_2年目', 'PL（2年目以降）月次詳細', result.pl2, state.synergy, `'月次PL_1年目'!M${p1.row.assets}`);
@@ -438,9 +452,26 @@ function buildExcelBytes(state, result) {
   return book.build();
 }
 
-function exportToExcel() {
+// PNGのバイト列から幅・高さを読む（IHDRチャンク）
+function pngSize(bytes) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { w: v.getUint32(16), h: v.getUint32(20) };
+}
+async function loadLogoForExcel() {
+  try {
+    const res = await fetch(LOGO_SRC);
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes[0] !== 0x89 || bytes[1] !== 0x50) return null; // PNG以外は載せない
+    const sz = pngSize(bytes);
+    return { bytes, w: sz.w, h: sz.h };
+  } catch (e) { return null; } // 取得できなければロゴ無しで出力
+}
+
+async function exportToExcel() {
   const result = runFullCalculation(appState);
-  const bytes = buildExcelBytes(appState, result);
+  const logo = await loadLogoForExcel();
+  const bytes = buildExcelBytes(appState, result, logo);
   const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const company = (appState.meta.companyName || '事業計画').replace(/[\\/:*?"<>|\s]+/g, '');
   const d = new Date();
