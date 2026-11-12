@@ -195,9 +195,9 @@ function fieldNumber(label, path, value, opts) {
 function fieldLinkedValue(label, formattedValue, opts) {
   opts = opts || {};
   return `
-    <div class="field">
+    <div class="field field-numeric">
       <label>${esc(label)}</label>
-      <div class="suffix-input"><span class="linked-value" style="padding:9px 0">${esc(formattedValue)}</span>${opts.suffix ? `<span>${esc(opts.suffix)}</span>` : ''}</div>
+      <div class="suffix-input"><span class="linked-value" style="line-height:var(--input-h)">${esc(formattedValue)}</span>${opts.suffix ? `<span>${esc(opts.suffix)}</span>` : ''}</div>
       ${opts.hint ? `<div class="hint">${esc(opts.hint)}</div>` : ''}
     </div>`;
 }

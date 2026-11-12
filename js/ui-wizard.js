@@ -101,15 +101,11 @@ function renderStepLicense() {
     const groupHeader = item.group !== lastGroup ? `<h3>${esc(groupLabel[item.group] || '')}</h3>` : '';
     lastGroup = item.group;
     return `${groupHeader}
-      <div class="field-row" style="margin-bottom:8px">
-        <div class="field" style="flex:2">
-          <label>${esc(item.label)}</label>
-        </div>
-        <div class="field field-numeric">
-          <div class="suffix-input">
-            <input type="text" inputmode="decimal" data-numeric="true" data-path="license.items.${idx}.amount" value="${esc(formatNum(item.amount))}" data-min="0" style="text-align:right" autocomplete="off">
-            <span>円</span>
-          </div>
+      <div class="line-item">
+        <label>${esc(item.label)}</label>
+        <div class="suffix-input">
+          <input type="text" inputmode="decimal" data-numeric="true" data-path="license.items.${idx}.amount" value="${esc(formatNum(item.amount))}" data-min="0" style="text-align:right" autocomplete="off">
+          <span>円</span>
         </div>
       </div>`;
   }).join('');
@@ -222,7 +218,7 @@ function staffGroupHtml(groupKey, groupLabel, list, note) {
   return `
     <h4 style="margin:14px 0 6px;font-size:.92em;color:var(--color-ink-soft)">${esc(groupLabel)}</h4>
     ${note ? `<p class="small text-muted" style="margin:-2px 0 8px">${esc(note)}</p>` : ''}
-    <div class="repeat-list">${items}</div>
+    <div class="repeat-list staff-list">${items}</div>
     <button class="btn-outline btn-sm" data-add-staff="${groupKey}" type="button">＋ ${esc(groupLabel)}を追加</button>
   `;
 }
@@ -466,24 +462,24 @@ function renderStepCosts() {
       </div>
       <h3>旅費交通費・通信費・租税公課・備品費（自動算出）</h3>
       <div class="field-row">
-        <div class="field">
+        <div class="field field-numeric">
           <label>旅費交通費</label>
-          <div class="suffix-input"><span style="padding:9px 0">${yen(travelMonth)}</span><span>円/月</span></div>
+          <div class="suffix-input"><span class="linked-value" style="line-height:var(--input-h)">${num(travelMonth)}</span><span>円/月</span></div>
           <div class="hint">営業人数（${num(st.salesHeadcount)}名）× 30,000円</div>
         </div>
-        <div class="field">
+        <div class="field field-numeric">
           <label>通信費</label>
-          <div class="suffix-input"><span style="padding:9px 0">${yen(commMonth)}</span><span>円/月</span></div>
+          <div class="suffix-input"><span class="linked-value" style="line-height:var(--input-h)">${num(commMonth)}</span><span>円/月</span></div>
           <div class="hint">営業人数（${num(st.salesHeadcount)}名）× 15,000円＋25,000円（固定電話等）</div>
         </div>
-        <div class="field">
+        <div class="field field-numeric">
           <label>租税公課</label>
-          <div class="suffix-input"><span style="padding:9px 0">${yen(taxMonth)}</span><span>円/月</span></div>
+          <div class="suffix-input"><span class="linked-value" style="line-height:var(--input-h)">${num(taxMonth)}</span><span>円/月</span></div>
           <div class="hint">必要契約件数（${num(appState.confirmedContractsPerMonth)}件/月）× 10,000円（印紙代等）</div>
         </div>
-        <div class="field">
+        <div class="field field-numeric">
           <label>備品費</label>
-          <div class="suffix-input"><span style="padding:9px 0">${yen(equipmentAnnual)}</span><span>円/年</span></div>
+          <div class="suffix-input"><span class="linked-value" style="line-height:var(--input-h)">${num(equipmentAnnual)}</span><span>円/年</span></div>
           <div class="hint">総人数（${num(st.totalHeadcount)}名）× 100,000円（PC費用等、開店時一括計上）</div>
         </div>
       </div>
