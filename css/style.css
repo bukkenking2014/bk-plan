@@ -229,6 +229,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   position: relative; max-height: 88vh; overflow-y: auto;
 }
 .cloud-modal h3 { margin-top: 0; }
+.cloud-modal.wide { max-width: 880px; }
+.company-table { font-size: .84em; }
+.company-table td { vertical-align: middle; }
+.company-actions { white-space: nowrap; text-align: right; }
+.company-actions button { margin-left: 4px; }
 .cloud-modal-close {
   position: absolute; top: 12px; right: 14px; background: none; border: none;
   font-size: 1.1em; color: var(--color-ink-soft); cursor: pointer; padding: 4px 6px;

@@ -1,0 +1,10 @@
+{
+  "name": "bk-plan",
+  "version": "1.0.0",
+  "private": true,
+  "description": "物件王 事業計画シミュレーター（Railway公開用サーバー）",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "pg": "^8.13.0" }
+}

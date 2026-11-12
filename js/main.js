@@ -19,6 +19,11 @@ function setActiveView(view) {
 }
 
 function bootApp() {
+  // server.js 経由（Railway等）で開かれているかを先に判定し、会社別保存のUI/読込先を切り替える
+  const detect = typeof detectServerMode === 'function' ? detectServerMode() : Promise.resolve(false);
+  detect.then(startApp);
+}
+function startApp() {
   document.querySelectorAll('#appNav button').forEach(btn => {
     btn.addEventListener('click', () => setActiveView(btn.getAttribute('data-view')));
   });
