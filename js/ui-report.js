@@ -18,6 +18,7 @@ function renderReport() {
     ${renderSimplePLSection(result)}
     ${renderMonthlyPLSection(result)}
     ${renderSynergySection(result)}
+    ${renderSheetLinksSection()}
     <div class="disclaimer-box">
       本シミュレーターは物件王「事業計画検討書」雛型の計算式をもとにした概算試算です。実際の契約・出店にあたっては、
       物件王担当者と内容をすり合わせのうえ確定させてください。全体スケジュールは営業日ベースの近似計算であり、実際の日程とは前後する場合があります。
@@ -26,6 +27,7 @@ function renderReport() {
   document.getElementById('backToWizard').onclick = () => setActiveView('wizard');
   document.getElementById('printBtn').onclick = () => printReport();
   document.getElementById('excelBtn').onclick = () => exportToExcel();
+  bindSheetLinks();
   main.querySelectorAll('details.collapsible').forEach(d => {});
 }
 

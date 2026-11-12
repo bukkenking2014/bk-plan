@@ -33,6 +33,9 @@ function createDefaultState() {
     // ターゲットエリアシート AV3（CPC）
     cpc: 100,
 
+    // 給与整合性・インセンティブ検討・能力判定・決定事項のGoogleスプレッドシート（会社ごと）
+    sheets: { url: '' },
+
     // ターゲットエリアシート C6:C11, K6:K11, K17:K20, Q17:Q20 etc（複数エリア対応）
     areas: [
       {
