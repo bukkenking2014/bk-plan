@@ -236,10 +236,10 @@ function areaTypeBreakdownTable(areaName, detail, dark) {
       <td>${pct(detail.compRatio[t], 1)}</td>
       <td>${manFloor(detail.weightedFee[t])}</td>
     </tr>`).join('');
-  const headColor = dark ? 'color:#cba55c' : '';
+  const headColor = '';
   return `
     <div class="table-scroll">
-    <table class="${dark ? 'mini-table' : 'plain'}" style="${dark ? 'color:#fff' : ''}">
+    <table class="${dark ? 'mini-table' : 'plain'}" >
       <thead>
         <tr><th colspan="6" style="text-align:left;${headColor}">${esc(areaName)}</th></tr>
         <tr>

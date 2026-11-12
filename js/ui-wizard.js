@@ -136,7 +136,7 @@ function previewLicense(result) {
         <div class="preview-stat"><div class="label">協会申請時 小計</div><div class="value">${yen(lic.associationSubtotal)}</div></div>
         <div class="preview-stat"><div class="label">合計</div><div class="value">${yen(lic.total)}</div></div>
       </div>
-      <p class="small" style="color:#fff;opacity:.85;margin-bottom:0;margin-top:10px">${appState.license.hasLicense ? '免許「有り」のため、この費用は店舗組成費に計上されません。' : '免許「無し」のため、上記合計が店舗組成費（イニシャル）に自動計上されます。'}</p>
+      <p class="small" style="margin-bottom:0;margin-top:10px">${appState.license.hasLicense ? '免許「有り」のため、この費用は店舗組成費に計上されません。' : '免許「無し」のため、上記合計が店舗組成費（イニシャル）に自動計上されます。'}</p>
     </div>`;
 }
 
@@ -200,12 +200,12 @@ function previewAreas(result) {
         <div class="preview-stat"><div class="label">加重平均 手数料/件</div><div class="value">${man(a.avgFeeManOverall)}</div></div>
         <div class="preview-stat"><div class="label">土地／中古系／新築 構成比</div><div class="value" style="font-size:1em">${pct(a.landRatio,0)} / ${pct(a.usedRatio,0)} / ${pct(a.newRatio,0)}</div></div>
       </div>
-      <h4 style="margin:16px 0 4px;color:#fff;font-size:.92em">種別ごとの合計件数・金額（全エリア合計）</h4>
+      <h4>種別ごとの合計件数・金額（全エリア合計）</h4>
       <table class="mini-table">
         <thead><tr><th>種別</th><th>合計件数</th><th>合計金額</th></tr></thead>
         <tbody>${typeRows}</tbody>
       </table>
-      <p class="small" style="color:#fff;opacity:.8;margin:14px 0 4px">物件種別ごとの手数料・基本構成比（数式に連動して自動更新されます）</p>
+      <p class="small" style="margin:14px 0 4px">物件種別ごとの手数料・基本構成比（数式に連動して自動更新されます）</p>
       ${detailTables}
     </div>`;
 }
