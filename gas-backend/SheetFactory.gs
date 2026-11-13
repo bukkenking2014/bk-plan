@@ -8,6 +8,9 @@
  *             └ 会社名_事業計画  … 雛型のコピー（社名・連動データ入り）
  * を作り、スプレッドシートとフォルダのURLをアプリへ返します。
  *
+ * 作成したスプレッドシートは、数式・設定値（率や基準値）・連動データを「保護」し、
+ * 入力欄（名前・日付・評価・チェックなど）だけを編集できる状態にします（applyProtection_）。
+ *
  * ▼ Code.gs（クラウド保存用）とは別のプロジェクトとして、新しくデプロイしてください。
  *   手順は README_GAS_SETUP.md の「会社別スプレッドシートの自動作成」を参照。
  *
@@ -82,8 +85,10 @@ function createCompanySheet_(req) {
   const ss = SpreadsheetApp.openById(file.getId());
   writeValues_(ss, req.rows);
   if (!existed) setTitles_(ss);
+  let protectError = '';
+  try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
   return {
-    ok: true, existed: existed,
+    ok: true, existed: existed, protectError: protectError,
     id: file.getId(), url: file.getUrl(), name: file.getName(),
     folderId: folder.getId(), folderUrl: folder.getUrl(), folderName: folder.getName()
   };
@@ -101,15 +106,24 @@ function updateValues_(req) {
     while (gps.hasNext()) { if (gps.next().getId() === root.getId()) inside = true; }
   }
   if (!inside) return { ok: false, error: '事業計画書フォルダの外にあるファイルは更新できません' };
-  writeValues_(SpreadsheetApp.openById(req.sheetId), req.rows);
-  return { ok: true, id: file.getId(), url: file.getUrl() };
+  const ss = SpreadsheetApp.openById(req.sheetId);
+  writeValues_(ss, req.rows, true);
+  let protectError = '';
+  try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
+  return { ok: true, id: file.getId(), url: file.getUrl(), protectError: protectError };
 }
 
-function writeValues_(ss, rows) {
+// keepInputs=true（更新時）：手入力欄（INPUT_ROWS）は上書きしない
+const INPUT_ROWS = [25]; // 連動データ B25：インセンティブ原資（年額）は人が入力する
+function writeValues_(ss, rows, keepInputs) {
   if (!rows || !rows.length) throw new Error('連動データが空です');
   const sh = ss.getSheetByName(VALUES_SHEET);
   if (!sh) throw new Error('「' + VALUES_SHEET + '」シートが見つかりません');
   const data = rows.map(function (r) { return [r[0] === undefined ? '' : r[0], r[1] === undefined ? '' : r[1]]; });
+  if (keepInputs) {
+    const cur = sh.getRange(1, 2, data.length, 1).getValues();
+    INPUT_ROWS.forEach(function (n) { if (n <= data.length) data[n - 1][1] = cur[n - 1][0]; });
+  }
   sh.getRange(1, 1, data.length, 2).setValues(data);
 }
 
@@ -122,4 +136,82 @@ function setTitles_(ss) {
   set('給与整合性', 'B1', '給与水準 確認表');
   set('能力判定', 'A1', '能力判定表');
   set('インセンティブ検討', 'B1', 'インセンティブ検討');
+}
+
+// ---------------------------------------------------------------------------
+// 保護：数式・設定値・連動データは触れないようにし、入力欄だけ編集できるようにする
+// ---------------------------------------------------------------------------
+
+// 数式ではないが「設定値」（率・基準値）なので、触れないようにするセル
+const LOCKED_CONSTANTS = {
+  '給与整合性': ['Z5:Z7', 'V21:V26', 'M22', 'L25', 'F15:I15'],
+  'インセンティブ検討': ['L5:L6'],
+  '能力判定': ['DH39', 'DK39:DK43', 'DI43', 'DH52', 'DK52:DK56', 'DI56']
+};
+
+function applyProtection_(ss, file) {
+  // 既存のシート保護を外してから、付け直す（何度実行しても同じ結果になる）
+  ss.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (p) { p.remove(); });
+  ss.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function (p) { p.remove(); });
+  ss.getSheets().forEach(function (sh) {
+    const name = sh.getName();
+    let open;
+    if (name === VALUES_SHEET) {
+      open = INPUT_ROWS.map(function (n) { return 'B' + n; });  // 連動データは、手入力欄のみ編集可
+    } else {
+      open = editableRanges_(sh, LOCKED_CONSTANTS[name] || []);
+    }
+    const prot = sh.protect().setDescription('数式・設定値の保護（入力欄のみ編集できます）');
+    if (open.length) prot.setUnprotectedRanges(sh.getRangeList(open).getRanges());
+    // 自分（作成者）以外の編集者は、保護された範囲を編集できない
+    const me = Session.getEffectiveUser();
+    prot.addEditor(me);
+    prot.removeEditors(prot.getEditors().filter(function (u) { return u.getEmail() !== me.getEmail(); }));
+    if (prot.canDomainEdit()) prot.setDomainEdit(false);
+  });
+  // 編集者が共有設定（他の人の追加・権限変更）を変えられないようにする
+  if (file) file.setShareableByEditors(false);
+}
+
+// 「数式のセル」と「設定値のセル」を除いた、編集してよいセルの範囲（A1表記）の一覧を返す
+function editableRanges_(sh, lockedA1) {
+  const rows = sh.getLastRow(), cols = sh.getLastColumn();
+  if (rows < 1 || cols < 1) return [];
+  const f = sh.getRange(1, 1, rows, cols).getFormulas();
+  const locked = [];
+  for (let r = 0; r < rows; r++) { locked.push(new Array(cols).fill(false)); for (let c = 0; c < cols; c++) if (f[r][c]) locked[r][c] = true; }
+  lockedA1.forEach(function (a1) { markRange_(locked, sh.getRange(a1)); });
+  // 結合セルは、中に1つでも保護対象があれば結合範囲ぜんぶを保護対象にする
+  sh.getRange(1, 1, rows, cols).getMergedRanges().forEach(function (m) {
+    const r1 = m.getRow() - 1, c1 = m.getColumn() - 1, r2 = r1 + m.getNumRows(), c2 = c1 + m.getNumColumns();
+    let any = false;
+    for (let r = r1; r < r2 && !any; r++) for (let c = c1; c < c2; c++) if (locked[r][c]) { any = true; break; }
+    if (any) for (let r = r1; r < r2; r++) for (let c = c1; c < c2; c++) locked[r][c] = true;
+  });
+  // 行ごとに「保護されていない連続区間」を求め、同じ区間が縦に続くものは1つの長方形にまとめる
+  const rects = [], openRect = {};
+  for (let r = 0; r <= rows; r++) {
+    const runs = {};
+    if (r < rows) {
+      let c = 0;
+      while (c < cols) {
+        if (locked[r][c]) { c++; continue; }
+        let e = c; while (e + 1 < cols && !locked[r][e + 1]) e++;
+        runs[c + ':' + e] = true; c = e + 1;
+      }
+    }
+    Object.keys(openRect).forEach(function (k) {
+      if (runs[k]) { delete runs[k]; } else { rects.push(openRect[k]); delete openRect[k]; }
+    });
+    Object.keys(runs).forEach(function (k) { const p = k.split(':'); openRect[k] = { r1: r, c1: +p[0], c2: +p[1], r2: r }; });
+    Object.keys(openRect).forEach(function (k) { openRect[k].r2 = r; });
+  }
+  return rects.map(function (x) { return sh.getRange(x.r1 + 1, x.c1 + 1, x.r2 - x.r1, x.c2 - x.c1 + 1).getA1Notation(); });
+}
+
+function markRange_(locked, range) {
+  for (let r = 0; r < range.getNumRows(); r++) for (let c = 0; c < range.getNumColumns(); c++) {
+    const rr = range.getRow() - 1 + r, cc = range.getColumn() - 1 + c;
+    if (locked[rr] && cc < locked[rr].length) locked[rr][cc] = true;
+  }
 }

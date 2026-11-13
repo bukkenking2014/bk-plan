@@ -166,9 +166,10 @@ function createCompanySheet() {
     appState.sheets = Object.assign({}, appState.sheets, { url: j.url, folderUrl: j.folderUrl });
     saveState();
     renderReport();
-    alert(j.existed
+    const warn = j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '';
+    alert((j.existed
       ? '同じ名前のスプレッドシートが既にあったため、それを開けるようにしました（連動データは最新に更新しました）。'
-      : 'フォルダ「' + j.folderName + '」にスプレッドシート「' + j.name + '」を作成しました。\n会社データを保存すると、次回から事業計画書のボタンで開けます。');
+      : 'フォルダ「' + j.folderName + '」にスプレッドシート「' + j.name + '」を作成しました。\n会社データを保存すると、次回から事業計画書のボタンで開けます。') + warn);
   }).catch(err => {
     alert('作成できませんでした：' + err.message);
     renderReport();
@@ -182,7 +183,7 @@ function updateSheetValues() {
   const btn = document.getElementById('sheetUpdateBtn');
   if (btn) { btn.disabled = true; btn.textContent = '更新中…'; }
   callSheetFactory({ action: 'update', sheetId: m[1], rows: buildSheetLinkRows(appState, result) })
-    .then(() => { alert('スプレッドシートの「連動データ」を最新の数字に更新しました。'); renderReport(); })
+    .then(j => { alert('スプレッドシートの「連動データ」を最新の数字に更新しました。' + (j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '')); renderReport(); })
     .catch(err => { alert('更新できませんでした：' + err.message); renderReport(); });
 }
 
