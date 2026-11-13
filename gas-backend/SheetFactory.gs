@@ -85,6 +85,7 @@ function createCompanySheet_(req) {
   const ss = SpreadsheetApp.openById(file.getId());
   writeValues_(ss, req.rows, existed); // 既存ファイルの場合は手入力欄（B25）を上書きしない
   if (!existed) setTitles_(ss);
+  try { softenColors_(ss); } catch (err) { /* 配色の調整に失敗しても作成は続ける */ }
   let protectError = '';
   try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
   return {
@@ -108,6 +109,7 @@ function updateValues_(req) {
   if (!inside) return { ok: false, error: '事業計画書フォルダの外にあるファイルは更新できません' };
   const ss = SpreadsheetApp.openById(req.sheetId);
   writeValues_(ss, req.rows, true);
+  try { softenColors_(ss); } catch (err) { /* 配色の調整に失敗しても更新は続ける */ }
   let protectError = '';
   try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
   return { ok: true, id: file.getId(), url: file.getUrl(), protectError: protectError };
@@ -136,6 +138,66 @@ function setTitles_(ss) {
   set('給与整合性', 'B1', '給与水準 確認表');
   set('能力判定', 'A1', '能力判定表');
   set('インセンティブ検討', 'B1', 'インセンティブ検討');
+}
+
+// ---------------------------------------------------------------------------
+// 配色：濃い塗り（青・赤・緑・紫・オレンジ・グレー）を、同系色の淡い色に直して読みやすくする。
+// ・淡い色（明るさ 0.87 以上）はそのまま。何度実行しても同じ結果になる。
+// ・白文字だった所は、同系色の濃い文字に替える。
+// ・条件付き書式の真っ赤（#FF0000）は、淡い赤＋濃い赤文字にする。
+// ---------------------------------------------------------------------------
+function hexToRgb_(h) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(h || ''));
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function rgbToHex_(c) {
+  return '#' + c.map(function (v) { const t = Math.max(0, Math.min(255, Math.round(v))).toString(16); return t.length < 2 ? '0' + t : t; }).join('');
+}
+function lum_(c) { return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255; }
+function mixRgb_(a, b, k) { return [0, 1, 2].map(function (i) { return a[i] * (1 - k) + b[i] * k; }); }
+
+// 戻り値：[新しい背景色, 新しい文字色]（変更なしなら、渡された値のまま）
+function softenOne_(bg, fc) {
+  const c = hexToRgb_(bg);
+  if (!c || lum_(c) >= 0.87) return [bg, fc];
+  const sat = (Math.max.apply(null, c) - Math.min.apply(null, c)) / 255;   // 彩度の目安（グレーは小さい）
+  const nbg = rgbToHex_(mixRgb_(c, [255, 255, 255], sat > 0.15 ? 0.8 : 0.55));
+  const f = hexToRgb_(fc);
+  const nfc = (!f || lum_(f) > 0.7) ? rgbToHex_(mixRgb_(c, [0, 0, 0], 0.62)) : fc;   // 白っぽい文字 → 同系色の濃い文字
+  return [nbg, nfc];
+}
+
+function softenColors_(ss) {
+  ss.getSheets().forEach(function (sh) {
+    const rows = sh.getLastRow(), cols = sh.getLastColumn();
+    if (rows < 1 || cols < 1) return;
+    const rng = sh.getRange(1, 1, rows, cols);
+    const bgs = rng.getBackgrounds(), fcs = rng.getFontColors();
+    let changed = false;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const out = softenOne_(bgs[r][c], fcs[r][c]);
+      if (out[0] !== bgs[r][c] || out[1] !== fcs[r][c]) { bgs[r][c] = out[0]; fcs[r][c] = out[1]; changed = true; }
+    }
+    if (changed) { rng.setBackgrounds(bgs); rng.setFontColors(fcs); }
+    // 条件付き書式の真っ赤を、淡い赤に
+    const rules = sh.getConditionalFormatRules();
+    let ruleChanged = false;
+    const next = rules.map(function (rule) {
+      let bg = null;
+      try { bg = rule.getBooleanCondition() && rule.getBooleanCondition().getBackground(); } catch (e) { bg = null; }
+      const rgb = hexToRgb_(bg);
+      if (rgb && lum_(rgb) < 0.87) {
+        const o = softenOne_(bg, rule.getBooleanCondition().getFontColor());
+        ruleChanged = true;
+        const dark = rgb[0] > 200 && rgb[1] < 80 && rgb[2] < 80;          // 真っ赤
+        return rule.copy().setBackground(dark ? '#FFC7CE' : o[0]).setFontColor(dark ? '#9C0006' : (o[1] || '#222222')).build();
+      }
+      return rule;
+    });
+    if (ruleChanged) sh.setConditionalFormatRules(next);
+  });
 }
 
 // ---------------------------------------------------------------------------
