@@ -25,7 +25,7 @@ const TEMPLATE_ID = '1H8em4V-B--ooagHGIrnfO_r9MmPAi2MvLKntBwzCE_w';
 // 管理者用の親フォルダ名。ROOT_FOLDER_ID を設定すると、そのフォルダを親として使います
 // （共有ドライブ内などに置きたい場合：フォルダURLの /folders/ の後ろの文字列）。空なら、マイドライブ直下の同名フォルダを探し、なければ作成します。
 const ROOT_FOLDER_NAME = '事業計画書';
-const ROOT_FOLDER_ID = '';
+const ROOT_FOLDER_ID = '1p8oGRSIcM0D9Dix_jlfxWIQQOpR6Y9bi'; // 共有ドライブの「オーナー研修_事業計画検討書（新）」
 
 // 合言葉（空なら誰でも呼び出し可能）。設定した場合、アプリの「連携設定」に同じ値を入力します。
 const ACCESS_KEY = '';
