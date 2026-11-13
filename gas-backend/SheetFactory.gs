@@ -163,10 +163,13 @@ function applyProtection_(ss, file) {
     }
     const prot = sh.protect().setDescription('数式・設定値の保護（入力欄のみ編集できます）');
     if (open.length) prot.setUnprotectedRanges(sh.getRangeList(open).getRanges());
-    // 自分（作成者）以外の編集者は、保護された範囲を編集できない
-    const me = Session.getEffectiveUser();
-    prot.addEditor(me);
-    prot.removeEditors(prot.getEditors().filter(function (u) { return u.getEmail() !== me.getEmail(); }));
+    // 作成者（ファイルの持ち主）以外の編集者は、保護された範囲を編集できない
+    // （Session.getEffectiveUser は追加の権限が必要なため、ファイルの持ち主を使う）
+    let me = null;
+    try { me = ss.getOwner(); } catch (e) { me = null; }
+    if (me) prot.addEditor(me);
+    const others = prot.getEditors().filter(function (u) { return !me || u.getEmail() !== me.getEmail(); });
+    if (others.length) prot.removeEditors(others);
     if (prot.canDomainEdit()) prot.setDomainEdit(false);
   });
   // 編集者が共有設定（他の人の追加・権限変更）を変えられないようにする
