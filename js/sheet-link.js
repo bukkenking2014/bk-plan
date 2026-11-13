@@ -131,7 +131,7 @@ function isPlaceholderCompany(name) { return !String(name || '').trim() || /[〇
 // ---- 自動作成（Apps Script：SheetFactory.gs）の接続設定 ----
 // 配布版では SHEET_FACTORY_URL にデプロイしたウェブアプリのURLを直接書いておくと、全員がそのまま使える。
 // 空のままでも、画面の「連携設定」から各自のブラウザに登録できる。
-const SHEET_FACTORY_URL = '';
+const SHEET_FACTORY_URL = 'https://script.google.com/macros/s/AKfycbwHlylbMuW--LhFesiS57mE0Mo9gW4RL7VY1U-z6UuuwhIp6I15LCJdXaD_FdmKwlrP/exec';
 const SHEET_FACTORY_KEY = 'bkPlanSimulator.sheetFactory';
 function getSheetFactory() {
   let o = {};
