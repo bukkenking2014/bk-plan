@@ -311,12 +311,15 @@ function applyProtection_(ss, file) {
     let me = null;
     try { me = ss.getOwner(); } catch (e) { me = null; }
     if (me) prot.addEditor(me);
-    const others = prot.getEditors().filter(function (u) { return !me || u.getEmail() !== me.getEmail(); });
-    if (others.length) prot.removeEditors(others);
-    if (prot.canDomainEdit()) prot.setDomainEdit(false);
+    // 共有ドライブのファイルには持ち主がいない（me が空）。その場合は1人ずつ外し、実行者自身は外せないので無視する
+    prot.getEditors().forEach(function (u) {
+      if (me && u.getEmail() === me.getEmail()) return;
+      try { prot.removeEditor(u); } catch (e) { /* 実行者自身などは外せない */ }
+    });
+    try { if (prot.canDomainEdit()) prot.setDomainEdit(false); } catch (e) { /* 共有ドライブでは変更できないことがある */ }
   });
-  // 編集者が共有設定（他の人の追加・権限変更）を変えられないようにする
-  if (file) file.setShareableByEditors(false);
+  // 編集者が共有設定（他の人の追加・権限変更）を変えられないようにする（共有ドライブでは設定できないことがある）
+  try { if (file) file.setShareableByEditors(false); } catch (e) { /* noop */ }
 }
 
 // 「数式のセル」と「設定値のセル」を除いた、編集してよいセルの範囲（A1表記）の一覧を返す
