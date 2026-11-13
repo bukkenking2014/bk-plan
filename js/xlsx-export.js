@@ -440,11 +440,50 @@ function xlsxInputSheet(book, state, result) {
   });
 }
 
+// グラフ用のデータシート。Googleスプレッドシートへ保存するときは、このデータからグラフを自動で作る
+// （gas-backend/SheetFactory.gs の buildCharts_。位置：月次データ A4:G28、年間売上内訳 A31〜）
+const XL_CHART_SHEET = 'グラフ';
+function xlsxChartSheet(book, state, result) {
+  const sh = book.addSheet(XL_CHART_SHEET);
+  sh.widths[1] = 20; for (let c = 2; c <= 7; c++) sh.widths[c] = 16;
+  sh.set(1, 1, 'グラフ（事業計画の推移）', XL.title);
+  sh.set(2, 1, '下の表からグラフを作っています。累計(黒字)・累計(赤字)は、黒字化のタイミングのグラフ用です。', XL.note);
+  ['月', '売上高', '販売管理費', '営業損益', '累計営業損益', '累計(黒字)', '累計(赤字)'].forEach((h, i) => sh.set(4, 1 + i, h, i === 0 ? XL.headL : XL.head));
+  const months = [...result.pl1.months, ...result.pl2.months];
+  const rev = [...result.pl1.totalRevenue, ...result.pl2.totalRevenue];
+  const sga = [...result.pl1.sgaTotal, ...result.pl2.sgaTotal];
+  const op = [...result.pl1.operatingIncome, ...result.pl2.operatingIncome];
+  let run = 0;
+  months.forEach((m, i) => {
+    run += op[i];
+    const r = 5 + i, st = { border: true, fmt: 'int' };
+    sh.set(r, 1, m, XL.label);
+    sh.set(r, 2, rev[i], st); sh.set(r, 3, sga[i], st); sh.set(r, 4, op[i], st);
+    sh.set(r, 5, run, st, i === 0 ? 'D5' : `E${r - 1}+D${r}`);
+    sh.set(r, 6, Math.max(run, 0), st, `MAX(E${r},0)`);
+    sh.set(r, 7, Math.min(run, 0), st, `MIN(E${r},0)`);
+  });
+  // 年間の売上内訳（1年目／2年目）
+  const sy = state.synergy, y1 = result.summary.year1, y2 = result.summary.year2;
+  sh.set(30, 1, '年間の売上内訳', XL.section); sh.set(30, 2, '', XL.section); sh.set(30, 3, '', XL.section);
+  sh.set(31, 1, '項目', XL.headL); sh.set(31, 2, '1年目', XL.head); sh.set(31, 3, '2年目', XL.head);
+  const lines = [['仲介手数料', y1.brokerage.amount, y2.brokerage.amount]];
+  if (sy.reform.enabled) lines.push(['リフォーム', y1.reform.amount, y2.reform.amount]);
+  if (sy.selfBuild.enabled) lines.push(['自社請負', y1.selfBuild.amount, y2.selfBuild.amount]);
+  if (sy.referral.enabled) lines.push(['他社紹介', y1.referral.amount, y2.referral.amount]);
+  lines.forEach((l, i) => {
+    sh.set(32 + i, 1, l[0], XL.label);
+    sh.set(32 + i, 2, l[1], { border: true, fmt: 'int' }); sh.set(32 + i, 3, l[2], { border: true, fmt: 'int' });
+  });
+  return sh;
+}
+
 /* ---------------- 公開API ---------------- */
 function buildExcelBytes(state, result, logo) {
   const book = new XlsxBook();
   if (logo) book.logo = logo;
   xlsxSummarySheet(book, state, result);
+  xlsxChartSheet(book, state, result);
   const p1 = xlsxMonthlyPL(book, '月次PL_1年目', 'PL（1年目）月次詳細', result.pl1, state.synergy, null);
   xlsxMonthlyPL(book, '月次PL_2年目', 'PL（2年目以降）月次詳細', result.pl2, state.synergy, `'月次PL_1年目'!M${p1.row.assets}`);
   xlsxSynergySheet(book, state, result);

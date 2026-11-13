@@ -174,6 +174,49 @@ function saveSimSheet_(folder, name, b64) {
   if (res.getResponseCode() >= 300) throw new Error('スプレッドシートへの保存に失敗しました（' + res.getResponseCode() + '）' + res.getContentText().slice(0, 120));
   const old = folder.getFilesByName(name + '.xlsx');
   while (old.hasNext()) old.next().setTrashed(true);
+  // 変換のたびにシートが作り直されてグラフが消えるので、毎回グラフを付け直す
+  buildCharts_(SpreadsheetApp.openById(file.getId()));
+}
+
+// 「グラフ」シートの表から、3つのグラフを作る（何度実行しても同じ結果になる）
+//   ① 黒字化のタイミング：累計営業損益（24ヶ月）…黒字は緑・赤字は赤の棒グラフ
+//   ② 月次の売上高・販売管理費・営業損益     …売上高と販売管理費は棒、営業損益は線
+//   ③ 年間の売上内訳                          …1年目・2年目の積み上げ棒グラフ
+function buildCharts_(ss) {
+  const sh = ss.getSheetByName('グラフ');
+  if (!sh) return;
+  sh.getCharts().forEach(function (c) { sh.removeChart(c); });
+  const W = 780, X = 9;   // グラフの幅、左位置（I列）
+
+  const c1 = sh.newChart().setChartType(Charts.ChartType.COLUMN)
+    .addRange(sh.getRange('A4:A28')).addRange(sh.getRange('F4:G28'))
+    .setNumHeaders(1).setOption('isStacked', true)
+    .setOption('title', '黒字化のタイミング（累計営業損益・24ヶ月）')
+    .setOption('colors', ['#2F9E6E', '#D9534F']).setOption('legend', { position: 'bottom' })
+    .setOption('hAxis', { slantedText: true, slantedTextAngle: 60 })
+    .setOption('vAxis', { format: '#,##0' }).setOption('bar', { groupWidth: '85%' })
+    .setOption('width', W).setOption('height', 320).setPosition(4, X, 0, 0).build();
+  sh.insertChart(c1);
+
+  const c2 = sh.newChart().setChartType(Charts.ChartType.COMBO)
+    .addRange(sh.getRange('A4:D28')).setNumHeaders(1)
+    .setOption('title', '月次の売上高・販売管理費・営業損益')
+    .setOption('seriesType', 'bars')
+    .setOption('series', { 0: { type: 'bars', color: '#05968C' }, 1: { type: 'bars', color: '#F0A04B' }, 2: { type: 'line', color: '#1F3A5F', lineWidth: 3, pointSize: 4 } })
+    .setOption('legend', { position: 'bottom' }).setOption('hAxis', { slantedText: true, slantedTextAngle: 60 })
+    .setOption('vAxis', { format: '#,##0' })
+    .setOption('width', W).setOption('height', 320).setPosition(22, X, 0, 0).build();
+  sh.insertChart(c2);
+
+  const last = Math.max(sh.getLastRow(), 32);
+  const c3 = sh.newChart().setChartType(Charts.ChartType.COLUMN)
+    .addRange(sh.getRange('A31:C' + last)).setNumHeaders(1)
+    .setTransposeRowsAndColumns(true).setOption('isStacked', true)
+    .setOption('title', '年間の売上内訳（1年目・2年目）')
+    .setOption('colors', ['#05968C', '#F0A04B', '#1F3A5F', '#8E6BBF'])
+    .setOption('legend', { position: 'right' }).setOption('vAxis', { format: '#,##0' })
+    .setOption('width', W).setOption('height', 320).setPosition(40, X, 0, 0).build();
+  sh.insertChart(c3);
 }
 
 function saveLinkDoc_(folder, name, appUrl, companyName) {
