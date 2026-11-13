@@ -234,7 +234,7 @@ function saveLinkDoc_(folder, name, appUrl, companyName) {
   body.appendParagraph((companyName || '') + ' 事業計画シミュレーター').setHeading(DocumentApp.ParagraphHeading.HEADING1);
   body.appendParagraph('下のリンクを開くと、この会社の事業計画シミュレーターを続きから編集できます。');
   body.appendParagraph('▶ 事業計画シミュレーターを開く').setLinkUrl(appUrl);
-  body.appendParagraph('※リンクで開くのは「保存」したデータです。入力した内容を反映するには、アプリの「☁ 保存」を押してください。');
+  body.appendParagraph('※リンクで開くのは「保存」したデータです。入力した内容を反映するには、アプリの「保存」ボタンを押してください。');
   doc.saveAndClose();
   file.setDescription(appUrl);
 }
