@@ -215,3 +215,11 @@ function markRange_(locked, range) {
     if (locked[rr] && cc < locked[rr].length) locked[rr][cc] = true;
   }
 }
+
+// 初回の承認専用：エディタでこの関数を選んで「実行」し、承認画面で全ての権限（ドライブ・スプレッドシート）にチェックを入れて許可する。
+// 実行ログに「承認OK」と出れば完了。その後、新バージョンでデプロイし直す。
+function authorize() {
+  DriveApp.getRootFolder();
+  SpreadsheetApp.openById(TEMPLATE_ID);
+  console.log('承認OK：ドライブとスプレッドシートを操作できます');
+}
