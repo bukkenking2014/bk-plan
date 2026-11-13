@@ -209,7 +209,7 @@ function editableRanges_(sh, lockedA1) {
     Object.keys(runs).forEach(function (k) { const p = k.split(':'); openRect[k] = { r1: r, c1: +p[0], c2: +p[1], r2: r }; });
     Object.keys(openRect).forEach(function (k) { openRect[k].r2 = r; });
   }
-  return rects.map(function (x) { return sh.getRange(x.r1 + 1, x.c1 + 1, x.r2 - x.r1, x.c2 - x.c1 + 1).getA1Notation(); });
+  return rects.map(function (x) { return sh.getRange(x.r1 + 1, x.c1 + 1, x.r2 - x.r1 + 1, x.c2 - x.c1 + 1).getA1Notation(); });
 }
 
 function markRange_(locked, range) {
