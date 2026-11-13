@@ -83,7 +83,7 @@ function createCompanySheet_(req) {
   if (!file) file = DriveApp.getFileById(TEMPLATE_ID).makeCopy(fileName, folder);
 
   const ss = SpreadsheetApp.openById(file.getId());
-  writeValues_(ss, req.rows);
+  writeValues_(ss, req.rows, existed); // 既存ファイルの場合は手入力欄（B25）を上書きしない
   if (!existed) setTitles_(ss);
   let protectError = '';
   try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
