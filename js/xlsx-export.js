@@ -468,10 +468,15 @@ async function loadLogoForExcel() {
   } catch (e) { return null; } // 取得できなければロゴ無しで出力
 }
 
-async function exportToExcel() {
+// いまの入力内容から Excel のバイト列を作る（ダウンロードにも、Googleドライブへの自動保存にも使う）
+async function buildCurrentExcelBytes() {
   const result = runFullCalculation(appState);
   const logo = await loadLogoForExcel();
-  const bytes = buildExcelBytes(appState, result, logo);
+  return buildExcelBytes(appState, result, logo);
+}
+
+async function exportToExcel() {
+  const bytes = await buildCurrentExcelBytes();
   const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const company = (appState.meta.companyName || '事業計画').replace(/[\\/:*?"<>|\s]+/g, '');
   const d = new Date();

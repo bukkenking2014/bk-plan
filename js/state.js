@@ -39,12 +39,14 @@ function fixCorruptedPercentFields(state) {
   return state;
 }
 
-function saveState() {
+// skipSync=true：読み込み直後などの「人が入力したわけではない」保存。Googleドライブの自動更新を予約しない。
+function saveState(skipSync) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
   } catch (e) {
     console.warn('state save failed', e);
   }
+  if (!skipSync && typeof scheduleDriveSync === 'function') scheduleDriveSync();
 }
 
 function resetState() {

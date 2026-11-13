@@ -150,6 +150,36 @@ function callSheetFactory(payload) {
     .then(j => { if (!j.ok) throw new Error(j.error || '失敗しました'); return j; });
 }
 
+// ---- 会社フォルダに入れる「Excel」と「アプリへのリンク」 ----
+function bytesToBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function driveFileBaseName() { const n = sheetFolderName(); return n ? n + '_事業計画シミュレーター' : ''; }
+// 保存済みの会社（専用URLあり）なら、このアプリの該当データを開くURL。未保存なら空
+function currentAppUrl() {
+  return (typeof currentCloudId !== 'undefined' && currentCloudId && typeof shareUrlFor === 'function') ? shareUrlFor(currentCloudId) : '';
+}
+async function driveFilesPayload() {
+  const base = driveFileBaseName();
+  const out = { companyName: (appState.meta && appState.meta.companyName) || '' };
+  if (!base) return out;
+  try {
+    out.xlsxBase64 = bytesToBase64(await buildCurrentExcelBytes());
+    out.xlsxName = base;
+  } catch (e) { console.warn('Excelの作成に失敗', e); }
+  const url = currentAppUrl();
+  if (url) { out.appUrl = url; out.linkName = base + '（リンク）'; }
+  return out;
+}
+function filesWarn(j) { return j.filesError ? '\n\n※会社フォルダへのExcel／リンクの保存に失敗しました：' + j.filesError : ''; }
+function hashStr(str) { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return String(h); }
+function driveSyncSignature() {
+  const st = Object.assign({}, appState); delete st.sheets;
+  return hashStr(JSON.stringify(st) + '|' + currentAppUrl());
+}
+
 function createCompanySheet() {
   const name = (appState.meta && appState.meta.companyName) || '';
   if (isPlaceholderCompany(name)) {
@@ -158,34 +188,120 @@ function createCompanySheet() {
   }
   const result = runFullCalculation(appState);
   const btn = document.getElementById('sheetCreateBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '作成中…（10〜20秒かかります）'; }
-  callSheetFactory({
+  if (btn) { btn.disabled = true; btn.textContent = '作成中…（10〜30秒かかります）'; }
+  driveFilesPayload().then(files => callSheetFactory(Object.assign({
     action: 'create', companyName: name, folderName: sheetFolderName(), fileName: sheetFileName(),
     rows: buildSheetLinkRows(appState, result)
-  }).then(j => {
+  }, files))).then(j => {
     appState.sheets = Object.assign({}, appState.sheets, { url: j.url, folderUrl: j.folderUrl });
-    saveState();
+    saveState(true);
+    driveSyncMarkDone();
     renderReport();
-    const warn = j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '';
+    const warn = (j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '') + filesWarn(j);
     alert((j.existed
       ? '同じ名前のスプレッドシートが既にあったため、それを開けるようにしました（連動データは最新に更新しました）。'
-      : 'フォルダ「' + j.folderName + '」にスプレッドシート「' + j.name + '」を作成しました。\n会社データを保存すると、次回から事業計画書のボタンで開けます。') + warn);
+      : 'フォルダ「' + j.folderName + '」にスプレッドシートとExcelを作成しました。\n以後、入力が止まると自動で最新に更新されます。') + warn);
   }).catch(err => {
     alert('作成できませんでした：' + err.message);
     renderReport();
   });
 }
 
-function updateSheetValues() {
+function sheetIdOfState() {
   const m = /\/d\/([\w-]+)/.exec((appState.sheets && appState.sheets.url) || '');
-  if (!m) return;
+  return m ? m[1] : '';
+}
+
+// 「今すぐ更新」ボタン：連動データ・配色・保護・Excel・リンクをすべて最新にする
+function updateSheetValues() {
+  const id = sheetIdOfState();
+  if (!id) return;
   const result = runFullCalculation(appState);
   const btn = document.getElementById('sheetUpdateBtn');
   if (btn) { btn.disabled = true; btn.textContent = '更新中…'; }
-  callSheetFactory({ action: 'update', sheetId: m[1], rows: buildSheetLinkRows(appState, result) })
-    .then(j => { alert('スプレッドシートの「連動データ」を最新の数字に更新しました。' + (j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '')); renderReport(); })
+  driveFilesPayload().then(files => callSheetFactory(Object.assign({ action: 'update', sheetId: id, rows: buildSheetLinkRows(appState, result) }, files)))
+    .then(j => {
+      driveSyncMarkDone();
+      alert('スプレッドシートの「連動データ」とExcelを最新の内容に更新しました。' + (j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '') + filesWarn(j));
+      renderReport();
+    })
     .catch(err => { alert('更新できませんでした：' + err.message); renderReport(); });
 }
+
+// ---- 自動更新：入力が止まって少し経ったら、連動データとExcelを自動で最新にする ----
+const DRIVE_AUTO_KEY = 'bkPlanSimulator.driveAutoSync';      // '0' なら自動更新オフ
+const DRIVE_PENDING_KEY = 'bkPlanSimulator.driveSyncPending'; // 未反映の変更があるスプレッドシートID
+const DRIVE_LAST_KEY = 'bkPlanSimulator.driveSyncLast';       // 最後に反映した内容の目印（シートID:署名）
+const DRIVE_SYNC_DELAY_MS = 45000;
+let driveSyncTimer = null, driveSyncBusy = false;
+const driveSyncInfo = { at: null, error: '' };
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* noop */ } }
+function driveAutoOn() { return lsGet(DRIVE_AUTO_KEY) !== '0'; }
+function driveSyncReady() {
+  return driveAutoOn() && !!getSheetFactory().url && !!sheetIdOfState() && !isPlaceholderCompany(appState.meta && appState.meta.companyName);
+}
+function driveSyncMarkDone() {
+  lsSet(DRIVE_PENDING_KEY, null);
+  lsSet(DRIVE_LAST_KEY, sheetIdOfState() + ':' + driveSyncSignature());
+  driveSyncInfo.at = new Date(); driveSyncInfo.error = '';
+}
+function driveSyncStatusText() {
+  if (!driveAutoOn()) return '自動更新はオフです。';
+  if (driveSyncBusy) return '更新中…';
+  if (driveSyncInfo.error) return '自動更新に失敗しました：' + driveSyncInfo.error + '（次の入力時に再試行します）';
+  if (driveSyncTimer) return '入力が止まったら自動で更新します…';
+  if (driveSyncInfo.at) {
+    const p = n => String(n).padStart(2, '0'), d = driveSyncInfo.at;
+    return '最終の自動更新：' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  return 'この画面で入力を変えると、自動で更新されます。';
+}
+function driveSyncShowStatus() {
+  const el = document.getElementById('driveSyncStatus');
+  if (el) el.textContent = driveSyncStatusText();
+}
+
+function scheduleDriveSync(delayMs) {
+  if (!driveSyncReady()) return;
+  lsSet(DRIVE_PENDING_KEY, sheetIdOfState());
+  if (driveSyncTimer) clearTimeout(driveSyncTimer);
+  driveSyncTimer = setTimeout(runDriveSync, typeof delayMs === 'number' ? delayMs : DRIVE_SYNC_DELAY_MS);
+  driveSyncShowStatus();
+}
+
+async function runDriveSync() {
+  driveSyncTimer = null;
+  if (!driveSyncReady()) return;
+  if (driveSyncBusy) { scheduleDriveSync(5000); return; }
+  const id = sheetIdOfState();
+  if (lsGet(DRIVE_LAST_KEY) === id + ':' + driveSyncSignature()) { lsSet(DRIVE_PENDING_KEY, null); driveSyncShowStatus(); return; } // 前回から変更なし
+  driveSyncBusy = true; driveSyncShowStatus();
+  try {
+    const sig = driveSyncSignature();
+    const files = await driveFilesPayload();
+    const rows = buildSheetLinkRows(appState, runFullCalculation(appState));
+    const j = await callSheetFactory(Object.assign({ action: 'update', sheetId: id, light: true, rows: rows }, files));
+    if (driveSyncSignature() === sig) driveSyncMarkDone();   // 送っている間にさらに入力があれば、次の予約に任せる
+    else { driveSyncInfo.at = new Date(); driveSyncInfo.error = ''; }
+    if (j.filesError) driveSyncInfo.error = j.filesError;
+  } catch (e) {
+    driveSyncInfo.error = e && e.message ? e.message : String(e);
+    console.warn('drive auto sync failed', e);
+  } finally {
+    driveSyncBusy = false; driveSyncShowStatus();
+  }
+}
+
+// 起動時：前回、反映前に画面を閉じた変更が残っていれば、すぐ反映する
+function bootDriveSync() {
+  if (lsGet(DRIVE_PENDING_KEY) && lsGet(DRIVE_PENDING_KEY) === sheetIdOfState()) scheduleDriveSync(3000);
+}
+// 画面を離れる（別タブへ移動・閉じる）ときは、待たずにすぐ反映する
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && driveSyncTimer) { clearTimeout(driveSyncTimer); runDriveSync(); }
+});
 
 function renderSheetLinksSection() {
   const sh = appState.sheets || {};
@@ -211,8 +327,13 @@ function renderSheetLinksSection() {
           <div class="sheet-main-actions">
             <a class="btn-gold" id="sheetOpenBtn" href="${esc(url)}" target="_blank" rel="noopener">📑 スプレッドシートを開く</a>
             ${folderUrl ? `<a class="btn-outline" id="sheetFolderBtn" href="${esc(folderUrl)}" target="_blank" rel="noopener">📂 会社フォルダを開く</a>` : ''}
-            ${auto ? `<button type="button" class="btn-outline" id="sheetUpdateBtn">🔄 連動データを最新に更新</button>` : ''}
-          </div>` : (auto ? `
+            ${auto ? `<button type="button" class="btn-outline" id="sheetUpdateBtn">🔄 今すぐ更新</button>` : ''}
+          </div>
+          ${auto ? `<div class="sheet-sync">
+            <label><input type="checkbox" id="driveAutoSyncChk" ${driveAutoOn() ? 'checked' : ''}> 入力が止まったら自動で更新する</label>
+            <span class="small text-muted" id="driveSyncStatus">${esc(driveSyncStatusText())}</span>
+          </div>
+          <p class="small">会社フォルダには、スプレッドシートと Excel${currentAppUrl() ? '、アプリのリンク' : ''}が入ります。${currentAppUrl() ? '' : '（アプリのリンクは、会社データを「☁ 保存」すると入ります）'}</p>` : ''}` : (auto ? `
           <div class="sheet-main-actions">
             <button type="button" class="btn-gold" id="sheetCreateBtn">📁 会社フォルダを作ってスプレッドシートを作成</button>
           </div>
@@ -261,6 +382,12 @@ function bindSheetLinks() {
   on('sheetCopyDataBtn', copySheetLinkData);
   on('sheetCreateBtn', createCompanySheet);
   on('sheetUpdateBtn', updateSheetValues);
+  const chk = document.getElementById('driveAutoSyncChk');
+  if (chk) chk.onchange = () => {
+    lsSet(DRIVE_AUTO_KEY, chk.checked ? '1' : '0');
+    if (chk.checked) scheduleDriveSync(); else if (driveSyncTimer) { clearTimeout(driveSyncTimer); driveSyncTimer = null; }
+    driveSyncShowStatus();
+  };
   on('sheetCopyNameBtn', () => {
     const t = sheetFileName();
     if (!t) return;

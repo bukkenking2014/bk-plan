@@ -60,10 +60,12 @@ function startApp() {
         if (btn) btn.onclick = () => setActiveView('wizard');
       } else {
         setActiveView(initialView());
+        if (typeof bootDriveSync === 'function') bootDriveSync();
       }
     });
   } else {
     setActiveView(initialView());
+    if (typeof bootDriveSync === 'function') bootDriveSync();
   }
 }
 if (document.readyState === 'loading') {

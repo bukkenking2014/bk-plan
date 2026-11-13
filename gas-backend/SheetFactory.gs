@@ -37,8 +37,14 @@ function doPost(e) {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (ACCESS_KEY && req.key !== ACCESS_KEY) return json_({ ok: false, error: '合言葉が違います' });
     if (req.action === 'ping') return json_({ ok: true });
-    if (req.action === 'create') return json_(createCompanySheet_(req));
-    if (req.action === 'update') return json_(updateValues_(req));
+    if (req.action === 'create' || req.action === 'update') {
+      // 自動更新が重なっても壊れないよう、1件ずつ順番に処理する
+      const lock = LockService.getScriptLock();
+      if (!lock.tryLock(60000)) return json_({ ok: false, error: '別の更新が実行中です。少し待ってからもう一度お試しください' });
+      try {
+        return json_(req.action === 'create' ? createCompanySheet_(req) : updateValues_(req));
+      } finally { lock.releaseLock(); }
+    }
     return json_({ ok: false, error: '不明な操作です' });
   } catch (err) {
     return json_({ ok: false, error: String(err && err.message || err) });
@@ -88,31 +94,95 @@ function createCompanySheet_(req) {
   try { softenColors_(ss); } catch (err) { /* 配色の調整に失敗しても作成は続ける */ }
   let protectError = '';
   try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
+  const filesError = saveCompanyFiles_(folder, req);
   return {
-    ok: true, existed: existed, protectError: protectError,
+    ok: true, existed: existed, protectError: protectError, filesError: filesError,
     id: file.getId(), url: file.getUrl(), name: file.getName(),
     folderId: folder.getId(), folderUrl: folder.getUrl(), folderName: folder.getName()
   };
 }
 
-// 「連動データ」だけを書き換える（数字を直した時の更新用）。事業計画書フォルダ配下のファイルに限る
+// 「連動データ」を書き換える（数字を直した時の更新用）。事業計画書フォルダ配下のファイルに限る。
+// req.light が true（自動更新）のときは、配色・保護の付け直しを省いて短時間で終える。
+// 会社フォルダの Excel とリンク（Google ドキュメント）も、あれば更新する。
 function updateValues_(req) {
   const file = DriveApp.getFileById(req.sheetId);
   const root = rootFolder_();
-  let inside = false;
+  let inside = false, folder = null;
   const parents = file.getParents();
   while (parents.hasNext()) {
     const p = parents.next();
     const gps = p.getParents();
-    while (gps.hasNext()) { if (gps.next().getId() === root.getId()) inside = true; }
+    while (gps.hasNext()) { if (gps.next().getId() === root.getId()) { inside = true; folder = p; } }
   }
   if (!inside) return { ok: false, error: '事業計画書フォルダの外にあるファイルは更新できません' };
   const ss = SpreadsheetApp.openById(req.sheetId);
   writeValues_(ss, req.rows, true);
-  try { softenColors_(ss); } catch (err) { /* 配色の調整に失敗しても更新は続ける */ }
   let protectError = '';
-  try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
-  return { ok: true, id: file.getId(), url: file.getUrl(), protectError: protectError };
+  if (!req.light) {
+    try { softenColors_(ss); } catch (err) { /* 配色の調整に失敗しても更新は続ける */ }
+    try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
+  }
+  const filesError = saveCompanyFiles_(folder, req);
+  return { ok: true, id: file.getId(), url: file.getUrl(), protectError: protectError, filesError: filesError, folderUrl: folder.getUrl() };
+}
+
+// ---------------------------------------------------------------------------
+// 会社フォルダへ「Excel」と「アプリへのリンク（Google ドキュメント）」を入れる／更新する
+//   req.xlsxBase64 + req.xlsxName … Excel（同名のファイルがあれば中身だけ差し替え。ファイルIDは変わらない）
+//   req.appUrl + req.linkName      … この会社のデータを開くアプリのURL（保存済みの会社のみ）
+// 失敗しても、スプレッドシート本体の処理は成功扱いにし、エラー文だけ返す。
+// ---------------------------------------------------------------------------
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+function findInFolder_(folder, name) {
+  const it = folder.getFilesByName(name);
+  return it.hasNext() ? it.next() : null;
+}
+
+function saveCompanyFiles_(folder, req) {
+  const errs = [];
+  if (req.xlsxBase64 && req.xlsxName) {
+    try { saveXlsx_(folder, clean_(req.xlsxName, 80) + '.xlsx', req.xlsxBase64); }
+    catch (e) { errs.push('Excel：' + String(e && e.message || e)); }
+  }
+  if (req.appUrl && req.linkName) {
+    try { saveLinkDoc_(folder, clean_(req.linkName, 80), String(req.appUrl), String(req.companyName || '')); }
+    catch (e) { errs.push('リンク：' + String(e && e.message || e)); }
+  }
+  return errs.join(' / ');
+}
+
+function saveXlsx_(folder, name, b64) {
+  const bytes = Utilities.base64Decode(b64);
+  const existing = findInFolder_(folder, name);
+  if (!existing) { folder.createFile(Utilities.newBlob(bytes, XLSX_MIME, name)); return; }
+  // 既存ファイルの中身だけを差し替える（Drive API。ファイルIDと共有設定はそのまま）
+  const res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' + existing.getId() + '?uploadType=media&supportsAllDrives=true', {
+    method: 'patch', contentType: XLSX_MIME, payload: bytes, muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
+  });
+  if (res.getResponseCode() >= 300) throw new Error('Excelの上書きに失敗しました（' + res.getResponseCode() + '）');
+}
+
+function saveLinkDoc_(folder, name, appUrl, companyName) {
+  let file = findInFolder_(folder, name);
+  if (file && file.getDescription() === appUrl) return;   // URLが同じなら何もしない
+  let doc;
+  if (file) doc = DocumentApp.openById(file.getId());
+  else {
+    doc = DocumentApp.create(name);
+    file = DriveApp.getFileById(doc.getId());
+    file.moveTo(folder);
+  }
+  const body = doc.getBody();
+  body.clear();
+  body.appendParagraph((companyName || '') + ' 事業計画シミュレーター').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  body.appendParagraph('下のリンクを開くと、この会社の事業計画シミュレーターを続きから編集できます。');
+  body.appendParagraph('▶ 事業計画シミュレーターを開く').setLinkUrl(appUrl);
+  body.appendParagraph('※リンクで開くのは「保存」したデータです。入力した内容を反映するには、アプリの「☁ 保存」を押してください。');
+  doc.saveAndClose();
+  file.setDescription(appUrl);
 }
 
 // keepInputs=true（更新時）：手入力欄（INPUT_ROWS）は上書きしない
@@ -288,5 +358,10 @@ function authorize() {
   const tmp = DriveApp.getRootFolder().createFolder('_承認テスト（削除してOK）');
   tmp.setTrashed(true);
   SpreadsheetApp.openById(TEMPLATE_ID);
+  const d = DocumentApp.create('_承認テスト（削除してOK）');       // Google ドキュメントの権限
+  DriveApp.getFileById(d.getId()).setTrashed(true);
+  UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/about?fields=kind', {      // 外部通信（Drive API）の権限
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
+  });
   console.log('承認OK：ドライブ（読み書き）とスプレッドシートを操作できます');
 }

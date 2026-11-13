@@ -658,3 +658,8 @@ details.collapsible summary { cursor: pointer; font-weight: 700; color: var(--co
 .sheet-manual-body { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
 .sheet-manual-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .sheet-key-input { flex: 0 1 200px; min-width: 0; }
+
+/* ---- スプレッドシートの自動更新の表示 ---- */
+.sheet-sync{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:10px 0 2px}
+.sheet-sync label{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+.sheet-sync input[type=checkbox]{width:auto;height:auto;margin:0}
