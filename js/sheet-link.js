@@ -150,7 +150,7 @@ function callSheetFactory(payload) {
     .then(j => { if (!j.ok) throw new Error(j.error || '失敗しました'); return j; });
 }
 
-// ---- 会社フォルダに入れる「Excel」と「アプリへのリンク」 ----
+// ---- 会社フォルダに入れる「シミュレーター結果（スプレッドシート）」と「アプリへのリンク」 ----
 function bytesToBase64(bytes) {
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
@@ -173,7 +173,7 @@ async function driveFilesPayload() {
   if (url) { out.appUrl = url; out.linkName = base + '（リンク）'; }
   return out;
 }
-function filesWarn(j) { return j.filesError ? '\n\n※会社フォルダへのExcel／リンクの保存に失敗しました：' + j.filesError : ''; }
+function filesWarn(j) { return j.filesError ? '\n\n※会社フォルダへのシミュレーター結果／リンクの保存に失敗しました：' + j.filesError : ''; }
 function hashStr(str) { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return String(h); }
 function driveSyncSignature() {
   const st = Object.assign({}, appState); delete st.sheets;
@@ -200,7 +200,7 @@ function createCompanySheet() {
     const warn = (j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '') + filesWarn(j);
     alert((j.existed
       ? '同じ名前のスプレッドシートが既にあったため、それを開けるようにしました（連動データは最新に更新しました）。'
-      : 'フォルダ「' + j.folderName + '」にスプレッドシートとExcelを作成しました。\n以後、入力が止まると自動で最新に更新されます。') + warn);
+      : 'フォルダ「' + j.folderName + '」にスプレッドシートを作成しました（シミュレーター結果も入ります）。\n以後、入力が止まると自動で最新に更新されます。') + warn);
   }).catch(err => {
     alert('作成できませんでした：' + err.message);
     renderReport();
@@ -212,7 +212,7 @@ function sheetIdOfState() {
   return m ? m[1] : '';
 }
 
-// 「今すぐ更新」ボタン：連動データ・配色・保護・Excel・リンクをすべて最新にする
+// 「今すぐ更新」ボタン：連動データ・配色・保護・シミュレーター結果・リンクをすべて最新にする
 function updateSheetValues() {
   const id = sheetIdOfState();
   if (!id) return;
@@ -222,13 +222,13 @@ function updateSheetValues() {
   driveFilesPayload().then(files => callSheetFactory(Object.assign({ action: 'update', sheetId: id, rows: buildSheetLinkRows(appState, result) }, files)))
     .then(j => {
       driveSyncMarkDone();
-      alert('スプレッドシートの「連動データ」とExcelを最新の内容に更新しました。' + (j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '') + filesWarn(j));
+      alert('スプレッドシートの「連動データ」とシミュレーター結果を最新の内容に更新しました。' + (j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '') + filesWarn(j));
       renderReport();
     })
     .catch(err => { alert('更新できませんでした：' + err.message); renderReport(); });
 }
 
-// ---- 自動更新：入力が止まって少し経ったら、連動データとExcelを自動で最新にする ----
+// ---- 自動更新：入力が止まって少し経ったら、連動データとシミュレーター結果を自動で最新にする ----
 const DRIVE_AUTO_KEY = 'bkPlanSimulator.driveAutoSync';      // '0' なら自動更新オフ
 const DRIVE_PENDING_KEY = 'bkPlanSimulator.driveSyncPending'; // 未反映の変更があるスプレッドシートID
 const DRIVE_LAST_KEY = 'bkPlanSimulator.driveSyncLast';       // 最後に反映した内容の目印（シートID:署名）
@@ -333,7 +333,7 @@ function renderSheetLinksSection() {
             <label><input type="checkbox" id="driveAutoSyncChk" ${driveAutoOn() ? 'checked' : ''}> 入力が止まったら自動で更新する</label>
             <span class="small text-muted" id="driveSyncStatus">${esc(driveSyncStatusText())}</span>
           </div>
-          <p class="small">会社フォルダには、スプレッドシートと Excel${currentAppUrl() ? '、アプリのリンク' : ''}が入ります。${currentAppUrl() ? '' : '（アプリのリンクは、会社データを「☁ 保存」すると入ります）'}</p>` : ''}` : (auto ? `
+          <p class="small">会社フォルダには、スプレッドシート（事業計画・シミュレーター結果）${currentAppUrl() ? '、アプリのリンク' : ''}が入ります。${currentAppUrl() ? '' : '（アプリのリンクは、会社データを「☁ 保存」すると入ります）'}</p>` : ''}` : (auto ? `
           <div class="sheet-main-actions">
             <button type="button" class="btn-gold" id="sheetCreateBtn">📁 会社フォルダを作ってスプレッドシートを作成</button>
           </div>

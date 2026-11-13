@@ -104,7 +104,7 @@ function createCompanySheet_(req) {
 
 // 「連動データ」を書き換える（数字を直した時の更新用）。事業計画書フォルダ配下のファイルに限る。
 // req.light が true（自動更新）のときは、配色・保護の付け直しを省いて短時間で終える。
-// 会社フォルダの Excel とリンク（Google ドキュメント）も、あれば更新する。
+// 会社フォルダの「シミュレーター結果（スプレッドシート）」とリンク（Google ドキュメント）も、あれば更新する。
 function updateValues_(req) {
   const file = DriveApp.getFileById(req.sheetId);
   const root = rootFolder_();
@@ -128,8 +128,8 @@ function updateValues_(req) {
 }
 
 // ---------------------------------------------------------------------------
-// 会社フォルダへ「Excel」と「アプリへのリンク（Google ドキュメント）」を入れる／更新する
-//   req.xlsxBase64 + req.xlsxName … Excel（同名のファイルがあれば中身だけ差し替え。ファイルIDは変わらない）
+// 会社フォルダへ「シミュレーター結果（Google スプレッドシート）」と「アプリへのリンク（Google ドキュメント）」を入れる／更新する
+//   req.xlsxBase64 + req.xlsxName … Excel形式のデータ。Google スプレッドシートに変換して保存（同名があれば中身だけ差し替え）
 //   req.appUrl + req.linkName      … この会社のデータを開くアプリのURL（保存済みの会社のみ）
 // 失敗しても、スプレッドシート本体の処理は成功扱いにし、エラー文だけ返す。
 // ---------------------------------------------------------------------------
@@ -143,8 +143,8 @@ function findInFolder_(folder, name) {
 function saveCompanyFiles_(folder, req) {
   const errs = [];
   if (req.xlsxBase64 && req.xlsxName) {
-    try { saveXlsx_(folder, clean_(req.xlsxName, 80) + '.xlsx', req.xlsxBase64); }
-    catch (e) { errs.push('Excel：' + String(e && e.message || e)); }
+    try { saveSimSheet_(folder, clean_(req.xlsxName, 80), req.xlsxBase64); }
+    catch (e) { errs.push('シミュレーター結果：' + String(e && e.message || e)); }
   }
   if (req.appUrl && req.linkName) {
     try { saveLinkDoc_(folder, clean_(req.linkName, 80), String(req.appUrl), String(req.companyName || '')); }
@@ -153,16 +153,27 @@ function saveCompanyFiles_(folder, req) {
   return errs.join(' / ');
 }
 
-function saveXlsx_(folder, name, b64) {
+// シミュレーターの結果を、Google スプレッドシートとして会社フォルダに入れる（Excelの中身を変換して保存）。
+// 同名のスプレッドシートがあれば、中身だけ差し替える（ファイルIDは変わらない）。
+// 以前の版で作った同名の .xlsx（Excel）があれば、ごみ箱へ移す。
+function saveSimSheet_(folder, name, b64) {
   const bytes = Utilities.base64Decode(b64);
-  const existing = findInFolder_(folder, name);
-  if (!existing) { folder.createFile(Utilities.newBlob(bytes, XLSX_MIME, name)); return; }
-  // 既存ファイルの中身だけを差し替える（Drive API。ファイルIDと共有設定はそのまま）
-  const res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' + existing.getId() + '?uploadType=media&supportsAllDrives=true', {
+  let file = null;
+  const it = folder.getFilesByName(name);
+  while (it.hasNext()) { const f = it.next(); if (f.getMimeType() === MimeType.GOOGLE_SHEETS) { file = f; break; } }
+  if (!file) {
+    const ss = SpreadsheetApp.create(name);
+    file = DriveApp.getFileById(ss.getId());
+    file.moveTo(folder);
+  }
+  // Excelの中身を送ると、Drive が Google スプレッドシートの形式に変換して差し替える
+  const res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' + file.getId() + '?uploadType=media&supportsAllDrives=true', {
     method: 'patch', contentType: XLSX_MIME, payload: bytes, muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
   });
-  if (res.getResponseCode() >= 300) throw new Error('Excelの上書きに失敗しました（' + res.getResponseCode() + '）');
+  if (res.getResponseCode() >= 300) throw new Error('スプレッドシートへの保存に失敗しました（' + res.getResponseCode() + '）' + res.getContentText().slice(0, 120));
+  const old = folder.getFilesByName(name + '.xlsx');
+  while (old.hasNext()) old.next().setTrashed(true);
 }
 
 function saveLinkDoc_(folder, name, appUrl, companyName) {
