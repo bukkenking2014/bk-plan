@@ -217,9 +217,11 @@ function markRange_(locked, range) {
 }
 
 // 初回の承認専用：エディタでこの関数を選んで「実行」し、承認画面で全ての権限（ドライブ・スプレッドシート）にチェックを入れて許可する。
+// フォルダを作る（書き込み）処理を含めることで、「ドライブの読み書き」の権限が承認される。
 // 実行ログに「承認OK」と出れば完了。その後、新バージョンでデプロイし直す。
 function authorize() {
-  DriveApp.getRootFolder();
+  const tmp = DriveApp.getRootFolder().createFolder('_承認テスト（削除してOK）');
+  tmp.setTrashed(true);
   SpreadsheetApp.openById(TEMPLATE_ID);
-  console.log('承認OK：ドライブとスプレッドシートを操作できます');
+  console.log('承認OK：ドライブ（読み書き）とスプレッドシートを操作できます');
 }
