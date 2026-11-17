@@ -355,16 +355,20 @@ function renderAdminHome() {
   const main = document.getElementById('appMain');
   main.innerHTML = `
     <div class="card admin-home">
-      <h2>管理画面</h2>
-      <p class="desc">会社ごとの事業計画を作成・管理します。会社を作成すると、入力画面が別のタブで開きます。</p>
-      <div class="admin-home-actions">
+      <div class="admin-home-head">
+        <h2>管理画面</h2>
         <button type="button" class="btn-gold btn-lg" id="adminNewBtn">＋ 新規作成</button>
-        <button type="button" class="btn-outline btn-lg" id="adminListBtn">📁 会社一覧</button>
       </div>
+      <p class="desc">会社ごとの事業計画を作成・管理します。会社を作成すると、入力画面が別のタブで開きます。</p>
+      <div id="adminList"><p class="text-muted">会社一覧を読み込み中…</p></div>
     </div>`;
   document.getElementById('adminNewBtn').onclick = () => createNewCompany();
-  document.getElementById('adminListBtn').onclick = () => openCompanyList();
+  openCompanyList();
 }
+// 管理画面に戻ってきた時（別タブで会社を作った後など）は、一覧を最新にする
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.getElementById('adminList')) openCompanyList();
+});
 
 /* ===================== 自動保存（コピーして新規作成した会社） =====================
  * 「コピーして新規作成」で作った会社（meta.autoSave）は、入力が止まって数秒後に、サーバーへ自動で保存する。
@@ -438,11 +442,12 @@ document.addEventListener('visibilitychange', () => {
 
 /* ---- 会社一覧（保存済みの会社を貯めて管理） ---- */
 function openCompanyList(msg) {
-  openCloudModal('<h3>会社一覧</h3><p class="text-muted">読み込み中…</p>', true);
+  const box = document.getElementById('adminList');
+  if (!box) return;
   apiCall('GET', 'api/companies').then(json => {
-    if (!json.ok) { openCloudModal(`<h3>会社一覧</h3><p style="color:var(--color-warn)">${esc(json.error || '読み込みに失敗しました')}</p>`, true); return; }
+    if (!json.ok) { box.innerHTML = `<p style="color:var(--color-warn)">${esc(json.error || '読み込みに失敗しました')}</p>`; return; }
     renderCompanyList(json.companies, msg);
-  }).catch(e => openCloudModal(`<h3>会社一覧</h3><p style="color:var(--color-warn)">${esc(String(e))}</p>`, true));
+  }).catch(e => { box.innerHTML = `<p style="color:var(--color-warn)">${esc(String(e))}</p>`; });
 }
 // 削除だけは、誤操作を防ぐため管理用パスワードを聞く（パスワードが設定されていない環境では聞かれない）
 function deleteCompanyWithPassword(id) {
@@ -476,25 +481,22 @@ function renderCompanyList(list, msg) {
         <button type="button" class="btn-ghost btn-sm" data-act="del" data-id="${esc(c.id)}">削除</button>
       </td>
     </tr>`).join('');
-  openCloudModal(`
+  const box = document.getElementById('adminList');
+  if (!box) return;
+  box.innerHTML = `
     <h3>会社一覧（${list.length}社）</h3>
     ${msg ? `<p class="small" style="color:var(--color-ok)">${esc(msg)}</p>` : ''}
-    <div class="field-row" style="margin-bottom:10px">
-      <button type="button" class="btn-gold btn-sm" id="listNewBtn">＋ 新規作成</button>
-    </div>
     ${list.length ? `<div class="table-scroll"><table class="plain company-table">
       <thead><tr><th>会社名</th><th>オープン予定日</th><th>1年目 営業損益</th><th>2年目 営業損益</th><th>最終更新</th><th></th></tr></thead>
-      <tbody>${rows}</tbody></table></div>` : '<p class="text-muted">まだ保存された会社がありません。「保存」またはコピーで会社を追加してください。</p>'}
-    <p class="small text-muted" style="margin-top:10px">営業損益は最後に保存した時点の数字です。</p>`, true);
+      <tbody>${rows}</tbody></table></div>` : '<p class="text-muted">まだ会社がありません。「＋ 新規作成」で会社を追加してください。</p>'}
+    <p class="small text-muted" style="margin-top:10px">営業損益は最後に保存した時点の数字です。</p>`;
 
-  document.getElementById('listNewBtn').onclick = () => createNewCompany(() => openCompanyList());
-  document.querySelectorAll('#cloudModalBody [data-act]').forEach(btn => {
+  box.querySelectorAll('[data-act]').forEach(btn => {
     btn.onclick = () => {
       const id = btn.getAttribute('data-id'); const act = btn.getAttribute('data-act');
       const c = list.find(x => x.id === id);
       if (act === 'copy') askCompanyName({
         title: `「${c.companyName}」をコピーして新規作成`, desc: '保存済みの内容をそのままコピーして、別の会社用を作ります。作成すると入力画面が別のタブで開き、Googleドライブにも会社フォルダとスプレッドシートが自動で作られます。以後の入力は自動で保存されます。', value: '', okLabel: 'コピーを作成して開く',
-        onCancel: () => openCompanyList()
       }, name => createThenOpen(() => apiCall('POST', `api/companies/${id}/copy`, { companyName: name }).then(failIfNotOk).then(j => j.id))
         .then(() => openCompanyList(`「${name}」を作成しました（入力画面を別のタブで開きました）。`)));
       if (act === 'del' && confirm(`「${c.companyName}」のデータを完全に削除します。元に戻せません。よろしいですか？`)) {
