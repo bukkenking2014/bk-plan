@@ -678,3 +678,12 @@ details.collapsible summary { cursor: pointer; font-weight: 700; color: var(--co
 table.plain.pl-table-compact th.pl-total-col, table.plain.pl-table-compact td.pl-total-col { background: #eef2f4; font-weight: 700; border-left: 1px solid #cfd8dc; border-right: 1px solid #cfd8dc; }
 table.plain.pl-table-compact tr.pl-row-cf td { color: #6b7780; font-style: italic; }
 table.plain.pl-table-compact tr.pl-row-cf td.pl-total-col { background: #f4f6f7; }
+
+/* スプレッドシート／会社フォルダ／今すぐ更新：リンクとボタンで文字・大きさ・太さを統一 */
+.sheet-actions a.btn-gold, .sheet-actions a.btn-outline, .sheet-actions button.btn-outline,
+.sheet-main-actions a.btn-gold, .sheet-main-actions a.btn-outline, .sheet-main-actions button {
+  font-family: inherit; font-size: .95em; font-weight: 600; line-height: 1.4;
+  padding: .6em 1.3em; border-radius: 6px; border: 1px solid var(--color-navy-2);
+  display: inline-flex; align-items: center; gap: .4em; box-sizing: border-box; text-decoration: none; cursor: pointer;
+}
+.sheet-actions a.btn-gold, .sheet-main-actions a.btn-gold { border-color: var(--color-gold); }
