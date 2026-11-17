@@ -65,12 +65,14 @@ function startApp() {
         setActiveView(initialView());
         if (typeof bootDriveSync === 'function') bootDriveSync();
         if (typeof showCloudAutoStatus === 'function') showCloudAutoStatus();
+        if (typeof autoCreateDriveSheet === 'function') autoCreateDriveSheet();
       }
     });
   } else {
     setActiveView(initialView());
     if (typeof bootDriveSync === 'function') bootDriveSync();
         if (typeof showCloudAutoStatus === 'function') showCloudAutoStatus();
+        if (typeof autoCreateDriveSheet === 'function') autoCreateDriveSheet();
   }
 }
 if (document.readyState === 'loading') {

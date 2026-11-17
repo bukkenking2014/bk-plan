@@ -304,6 +304,48 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && driveSyncTimer) { clearTimeout(driveSyncTimer); runDriveSync(); }
 });
 
+// ---- 新規作成した会社を、開いた時に自動でGoogleドライブへ作る ----
+// 条件：サーバー保存の会社（自動保存あり）で、スプレッドシートがまだ無く、会社名が入っていて、連携先が設定済み。
+// 「新規作成」「コピーして新規作成」どちらで作った会社も、入力画面を開いた直後に作られる。
+let driveCreateBusy = false;
+function showDriveCreateStatus(text, isError) {
+  let el = document.getElementById('driveCreateStatus');
+  if (!el) {
+    const box = document.querySelector('.cloud-actions');
+    if (!box) return;
+    el = document.createElement('span'); el.id = 'driveCreateStatus'; el.className = 'cloud-auto-status small text-muted'; el.setAttribute('aria-live', 'polite');
+    box.insertBefore(el, box.firstChild);
+  }
+  el.textContent = text || ''; el.style.color = isError ? 'var(--color-warn)' : ''; el.style.display = text ? '' : 'none';
+}
+function driveCreateReady() {
+  return typeof serverMode !== 'undefined' && serverMode && !!currentCloudId
+    && !!(appState.meta && appState.meta.autoSave) && !sheetIdOfState()
+    && !!getSheetFactory().url && !isPlaceholderCompany(appState.meta && appState.meta.companyName);
+}
+async function autoCreateDriveSheet() {
+  if (driveCreateBusy || !driveCreateReady()) return;
+  driveCreateBusy = true;
+  showDriveCreateStatus('Googleドライブに作成中…（10〜30秒かかります）');
+  try {
+    const result = runFullCalculation(appState);
+    const files = await driveFilesPayload();
+    const j = await callSheetFactory(Object.assign({
+      action: 'create', companyName: appState.meta.companyName, folderName: sheetFolderName(), fileName: sheetFileName(),
+      rows: buildSheetLinkRows(appState, result)
+    }, files));
+    appState.sheets = Object.assign({}, appState.sheets, { url: j.url, folderUrl: j.folderUrl });
+    saveState(true);
+    if (typeof scheduleCloudAutoSave === 'function') scheduleCloudAutoSave();   // スプレッドシートのURLを会社データにも保存
+    driveSyncMarkDone();
+    showDriveCreateStatus('Googleドライブに作成しました' + ((j.protectError || j.filesError) ? '（一部の設定に失敗しました）' : ''));
+    if (activeView === 'report') renderReport();
+  } catch (e) {
+    showDriveCreateStatus('Googleドライブへの作成に失敗しました：' + (e && e.message ? e.message : e) + '（事業計画書の画面から作成できます）', true);
+    console.warn('auto create drive sheet failed', e);
+  } finally { driveCreateBusy = false; }
+}
+
 function renderSheetLinksSection() {
   const sh = appState.sheets || {};
   const url = (sh.url || '').trim();

@@ -341,7 +341,7 @@ function createThenOpen(make) {
 function createNewCompany(onCancel) {
   askCompanyName({
     title: '新規作成',
-    desc: '標準の初期値で、新しい会社用のデータを作ります。作成すると入力画面が別のタブで開き、以後の入力は自動で保存されます。',
+    desc: '標準の初期値で、新しい会社用のデータを作ります。作成すると入力画面が別のタブで開き、Googleドライブにも会社フォルダとスプレッドシートが自動で作られます。以後の入力は自動で保存されます。',
     value: '', okLabel: '作成して開く', onCancel
   }, name => createThenOpen(() => {
     const st = createDefaultState();
@@ -439,24 +439,22 @@ document.addEventListener('visibilitychange', () => {
 /* ---- 会社一覧（保存済みの会社を貯めて管理） ---- */
 function openCompanyList(msg) {
   openCloudModal('<h3>会社一覧</h3><p class="text-muted">読み込み中…</p>', true);
-  apiCall('GET', 'api/companies', undefined, true).then(json => {
-    if (json.status === 401 || json.status === 403) { renderAdminLogin(json.error); return; }
+  apiCall('GET', 'api/companies').then(json => {
     if (!json.ok) { openCloudModal(`<h3>会社一覧</h3><p style="color:var(--color-warn)">${esc(json.error || '読み込みに失敗しました')}</p>`, true); return; }
     renderCompanyList(json.companies, msg);
   }).catch(e => openCloudModal(`<h3>会社一覧</h3><p style="color:var(--color-warn)">${esc(String(e))}</p>`, true));
 }
-function renderAdminLogin(err) {
-  openCloudModal(`
-    <h3>会社一覧</h3>
-    <p class="small text-muted">保存済みの会社一覧を見るには管理用パスワードが必要です。</p>
-    <div class="field"><label>管理用パスワード</label><input type="password" id="adminPwInput" autocomplete="current-password" style="width:100%"></div>
-    <p class="small" style="color:var(--color-warn);min-height:1.2em">${esc(getAdminPw() ? (err || '') : '')}</p>
-    <div class="field-row"><button type="button" class="btn-gold" id="adminPwOk">開く</button><button type="button" class="btn-outline" id="adminPwCancel">キャンセル</button></div>`);
-  const input = document.getElementById('adminPwInput'); input.focus();
-  const go = () => { setAdminPw(input.value); openCompanyList(); };
-  document.getElementById('adminPwOk').onclick = go;
-  document.getElementById('adminPwCancel').onclick = closeCloudModal;
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+// 削除だけは、誤操作を防ぐため管理用パスワードを聞く（パスワードが設定されていない環境では聞かれない）
+function deleteCompanyWithPassword(id) {
+  return apiCall('DELETE', 'api/companies/' + id, undefined, true).then(j => {
+    if (j.status === 401 || j.status === 403) {
+      const pw = prompt('削除には管理用パスワードが必要です。パスワードを入力してください。');
+      if (pw === null) return { ok: false, error: '削除をやめました' };
+      setAdminPw(pw);
+      return apiCall('DELETE', 'api/companies/' + id, undefined, true);
+    }
+    return j;
+  });
 }
 function fmtDateTime(iso) {
   const d = new Date(iso); if (isNaN(d)) return '';
@@ -495,12 +493,12 @@ function renderCompanyList(list, msg) {
       const id = btn.getAttribute('data-id'); const act = btn.getAttribute('data-act');
       const c = list.find(x => x.id === id);
       if (act === 'copy') askCompanyName({
-        title: `「${c.companyName}」をコピーして新規作成`, desc: '保存済みの内容をそのままコピーして、別の会社用を作ります。作成すると入力画面が別のタブで開き、以後の入力は自動で保存されます。', value: '', okLabel: 'コピーを作成して開く',
+        title: `「${c.companyName}」をコピーして新規作成`, desc: '保存済みの内容をそのままコピーして、別の会社用を作ります。作成すると入力画面が別のタブで開き、Googleドライブにも会社フォルダとスプレッドシートが自動で作られます。以後の入力は自動で保存されます。', value: '', okLabel: 'コピーを作成して開く',
         onCancel: () => openCompanyList()
       }, name => createThenOpen(() => apiCall('POST', `api/companies/${id}/copy`, { companyName: name }).then(failIfNotOk).then(j => j.id))
         .then(() => openCompanyList(`「${name}」を作成しました（入力画面を別のタブで開きました）。`)));
       if (act === 'del' && confirm(`「${c.companyName}」のデータを完全に削除します。元に戻せません。よろしいですか？`)) {
-        apiCall('DELETE', 'api/companies/' + id, undefined, true).then(j => {
+        deleteCompanyWithPassword(id).then(j => {
           if (!j.ok) { alert(j.error || '削除できませんでした'); return; }
           if (id === currentCloudId) { currentCloudId = ''; const u = new URL(location.href); u.searchParams.delete('id'); history.replaceState(null, '', u.toString()); }
           openCompanyList('削除しました。');

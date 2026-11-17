@@ -6,7 +6,7 @@
  *
  * 保存先：環境変数 DATABASE_URL があれば PostgreSQL（Railway の Postgres）、
  *         無ければ DATA_DIR（既定 ./data）配下のJSONファイル（ローカル確認用）。
- * 管理用パスワード：環境変数 ADMIN_PASSWORD。会社一覧・削除・全件エクスポートに必要。
+ * 管理用パスワード：環境変数 ADMIN_PASSWORD。削除・全件エクスポートに必要（会社一覧の表示には不要）。
  *   （本番で未設定の場合、これらのAPIは安全のため無効になります）
  */
 const http = require('http');
@@ -134,7 +134,7 @@ async function handleApi(req, res, url) {
 
   const id = parts[2];
   if (!id) {
-    if (method === 'GET') { if (!requireAdmin(req, res)) return; return json(res, 200, { ok: true, companies: await store.list() }); }
+    if (method === 'GET') return json(res, 200, { ok: true, companies: await store.list() }); // 会社一覧：パスワード不要
     if (method === 'POST') {
       const body = await readBody(req); const data = cleanData(body.data);
       const rec = { id: newId(), ...fieldsFrom(body, data), copiedFrom: /^[a-f0-9]{8,32}$/.test(String(body.copiedFrom || '')) ? body.copiedFrom : null, data };
