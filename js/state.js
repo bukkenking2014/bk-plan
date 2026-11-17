@@ -46,7 +46,10 @@ function saveState(skipSync) {
   } catch (e) {
     console.warn('state save failed', e);
   }
-  if (!skipSync && typeof scheduleDriveSync === 'function') scheduleDriveSync();
+  if (!skipSync) {
+    if (typeof scheduleCloudAutoSave === 'function') scheduleCloudAutoSave();
+    if (typeof scheduleDriveSync === 'function') scheduleDriveSync();
+  }
 }
 
 function resetState() {

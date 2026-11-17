@@ -153,7 +153,7 @@ async function handleApi(req, res, url) {
     const name = String(body.companyName || '').trim().slice(0, 100);
     if (!name) return json(res, 400, { ok: false, error: '新しい会社名を入力してください' });
     const data = JSON.parse(JSON.stringify(src.data));
-    data.meta = { ...(data.meta || {}), companyName: name, createdAt: new Date().toISOString().slice(0, 10) };
+    data.meta = { ...(data.meta || {}), companyName: name, createdAt: new Date().toISOString().slice(0, 10), autoSave: true };
     data.sheets = { url: '', folderUrl: '' }; // 元の会社のスプレッドシートを引き継がない
     const rec = { id: newId(), companyName: name, openDate: src.openDate, year1: src.year1, year2: src.year2, copiedFrom: src.id, data };
     const saved = await store.create(rec);

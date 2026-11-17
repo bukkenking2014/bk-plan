@@ -328,7 +328,7 @@ function saveToServer() {
 function copyAsNewCompany() {
   askCompanyName({
     title: 'コピーして別の会社用を作成',
-    desc: 'いま画面にある内容をそのままコピーして、新しい会社用のデータを作ります。元のデータは変わりません。作成すると、新しい会社の入力画面が別のタブで開きます。',
+    desc: 'いま画面にある内容をそのままコピーして、新しい会社用のデータを作ります。元のデータは変わりません。作成すると、新しい会社の入力画面が別のタブで開きます。以後の入力は自動で保存されます。',
     value: '', okLabel: 'コピーを作成'
   }, name => {
     // 保存を待ってから開くとポップアップとして止められるため、クリックした直後に空のタブを先に開いておく
@@ -336,6 +336,7 @@ function copyAsNewCompany() {
     const payload = Object.assign(payloadFor(appState, name), { copiedFrom: currentCloudId || undefined });
     payload.data.meta.createdAt = new Date().toISOString().slice(0, 10);
     payload.data.sheets = { url: '', folderUrl: '' };   // 元の会社のスプレッドシートを引き継がない（自動更新で上書きしないため）
+    payload.data.meta.autoSave = true;                  // コピーして作った会社は、以後の入力を自動で保存する
     return apiCall('POST', 'api/companies', payload).then(failIfNotOk).then(j => {
       closeCloudModal();
       const url = shareUrlFor(j.id);
@@ -344,6 +345,76 @@ function copyAsNewCompany() {
     }).catch(e => { if (tab) tab.close(); throw e; });
   });
 }
+
+/* ===================== 自動保存（コピーして新規作成した会社） =====================
+ * 「コピーして新規作成」で作った会社（meta.autoSave）は、入力が止まって数秒後に、サーバーへ自動で保存する。
+ * それ以外の会社は、従来どおり「☁ 保存」ボタンで保存する。 */
+const CLOUD_AUTOSAVE_DELAY_MS = 2500;
+const CLOUD_AUTOSAVE_RETRY_MS = 15000;
+let cloudAutoTimer = null, cloudAutoBusy = false;
+const cloudAutoInfo = { at: null, error: '', dirty: false };
+
+function cloudAutoSaveOn() {
+  return serverMode && !!currentCloudId && !!(appState.meta && appState.meta.autoSave);
+}
+function cloudAutoStatusText() {
+  if (!cloudAutoSaveOn()) return '';
+  if (cloudAutoBusy) return '自動保存：保存中…';
+  if (cloudAutoInfo.error) return '自動保存に失敗しました（再試行します）';
+  if (cloudAutoInfo.dirty) return '自動保存：入力を待っています…';
+  if (cloudAutoInfo.at) {
+    const p = n => String(n).padStart(2, '0'), d = cloudAutoInfo.at;
+    return '自動保存：保存済み ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  return '自動保存：オン';
+}
+function showCloudAutoStatus() {
+  let el = document.getElementById('cloudAutoStatus');
+  if (!el) {
+    const box = document.querySelector('.cloud-actions');
+    if (!box) return;
+    el = document.createElement('span'); el.id = 'cloudAutoStatus'; el.className = 'cloud-auto-status small text-muted'; el.setAttribute('aria-live', 'polite');
+    box.insertBefore(el, box.firstChild);
+  }
+  el.textContent = cloudAutoStatusText();
+  el.style.display = el.textContent ? '' : 'none';
+}
+function scheduleCloudAutoSave(delayMs) {
+  if (!cloudAutoSaveOn()) return;
+  cloudAutoInfo.dirty = true;
+  if (cloudAutoTimer) clearTimeout(cloudAutoTimer);
+  cloudAutoTimer = setTimeout(runCloudAutoSave, typeof delayMs === 'number' ? delayMs : CLOUD_AUTOSAVE_DELAY_MS);
+  showCloudAutoStatus();
+}
+async function runCloudAutoSave() {
+  cloudAutoTimer = null;
+  if (!cloudAutoSaveOn() || !cloudAutoInfo.dirty) return;
+  if (cloudAutoBusy) { scheduleCloudAutoSave(1500); return; }
+  cloudAutoBusy = true; cloudAutoInfo.dirty = false; showCloudAutoStatus();
+  try {
+    const j = await apiCall('PUT', 'api/companies/' + currentCloudId, payloadFor(appState, appState.meta.companyName || ''));
+    failIfNotOk(j);
+    cloudAutoInfo.at = new Date(); cloudAutoInfo.error = '';
+  } catch (e) {
+    cloudAutoInfo.error = e && e.message ? e.message : String(e); cloudAutoInfo.dirty = true;
+    console.warn('cloud auto save failed', e);
+    if (!cloudAutoTimer) cloudAutoTimer = setTimeout(runCloudAutoSave, CLOUD_AUTOSAVE_RETRY_MS);
+  } finally {
+    cloudAutoBusy = false; showCloudAutoStatus();
+    if (cloudAutoInfo.dirty && !cloudAutoInfo.error && !cloudAutoTimer) scheduleCloudAutoSave(); // 保存中にさらに入力があった
+  }
+}
+// 画面を離れる時は、待たずにすぐ保存する（閉じる直前でも送れるよう keepalive を付ける）
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && cloudAutoInfo.dirty && cloudAutoSaveOn() && !cloudAutoBusy) {
+    if (cloudAutoTimer) { clearTimeout(cloudAutoTimer); cloudAutoTimer = null; }
+    try {
+      fetch('api/companies/' + currentCloudId, { method: 'PUT', keepalive: true, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadFor(appState, appState.meta.companyName || '')) })
+        .then(r => { if (r.ok) { cloudAutoInfo.dirty = false; cloudAutoInfo.at = new Date(); cloudAutoInfo.error = ''; } });
+    } catch (e) { /* 次に開いた時の保存に任せる */ }
+  }
+});
 
 /* ---- 会社一覧（保存済みの会社を貯めて管理） ---- */
 function openCompanyList(msg) {

@@ -663,3 +663,6 @@ details.collapsible summary { cursor: pointer; font-weight: 700; color: var(--co
 .sheet-sync{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:10px 0 2px}
 .sheet-sync label{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
 .sheet-sync input[type=checkbox]{width:auto;height:auto;margin:0}
+
+/* ---- 自動保存の状態表示（ヘッダー） ---- */
+.cloud-auto-status{align-self:center;margin-right:10px;white-space:nowrap;font-size:12px}

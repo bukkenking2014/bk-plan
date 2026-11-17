@@ -195,6 +195,7 @@ function createCompanySheet() {
   }, files))).then(j => {
     appState.sheets = Object.assign({}, appState.sheets, { url: j.url, folderUrl: j.folderUrl });
     saveState(true);
+    if (typeof scheduleCloudAutoSave === 'function') scheduleCloudAutoSave();
     driveSyncMarkDone();
     renderReport();
     const warn = (j.protectError ? '\n\n※保護（編集ロック）の設定に失敗しました：' + j.protectError : '') + filesWarn(j);

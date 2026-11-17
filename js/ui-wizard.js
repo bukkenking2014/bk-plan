@@ -113,11 +113,11 @@ function renderStepLicense() {
     <div class="card">
       <h2>免許状況</h2>
       <p class="desc">宅地建物取引業免許の有無により、店舗組成費（イニシャル）の計上が変わります。金額は都道府県・協会により異なるため、実際の金額に編集してください。</p>
+      <div id="preview-license"></div>
       <div class="radio-group">
         <label><input type="radio" name="lic" value="true" data-path="license.hasLicense" ${hasLicense ? 'checked' : ''}> 免許 有り</label>
         <label><input type="radio" name="lic" value="false" data-path="license.hasLicense" ${!hasLicense ? 'checked' : ''}> 免許 無し（新規取得）</label>
       </div>
-      <div id="preview-license"></div>
       <h3>免許取得・協会加入費用 内訳（編集可）</h3>
       ${rows}
     </div>`;
@@ -246,6 +246,7 @@ function renderStepGoals() {
   return `
     <div class="card">
       <h2>目標設定</h2>
+      <div id="preview-goals"></div>
       <h3>【 人員体制・給与 】</h3>
       ${staffGroupHtml('managers', '不動産業務経験者', s.managers, '※3年以上の実務経験を想定しています')}
       ${staffGroupHtml('agents', 'エージェント', s.agents)}
@@ -263,7 +264,6 @@ function renderStepGoals() {
       <div class="field-row">
         ${fieldNumber('2年目以降の年間営業利益目標', 'targetProfitAnnual', appState.targetProfitAnnual, { suffix: '円/年', hint: '損益分岐点に上乗せする目標利益（任意、0でも可）' })}
       </div>
-      <div id="preview-goals"></div>
     </div>`;
 }
 function previewGoals(result) {
@@ -338,7 +338,7 @@ function renderStepAd() {
         ${fieldLinkedValue('CPC（クリック単価）', num(appState.cpc), { suffix: '円', hint: '「ターゲットエリア」で入力済みの値です' })}
         ${fieldNumber('CVR（反響獲得率）', 'ad.cvr', ad.cvr * 100, { suffix: '%', step: '0.1', percent: true })}
       </div>
-      <p class="hint">※CVRの入力は%単位。CPA（獲得単価）＝CPC÷CVRで自動計算されます（下の概要で確認できます）。</p>
+      <p class="hint">※CVRの入力は%単位。CPA（獲得単価）＝CPC÷CVRで自動計算されます（上の概要で確認できます）。</p>
       <div class="field-row">
         ${fieldNumber('ポータルサイト費用', 'ad.portal', ad.portal, { suffix: '円/月' })}
         ${fieldNumber('査定サイト費用', 'ad.assessmentSite', ad.assessmentSite, { suffix: '円/月' })}
@@ -385,6 +385,7 @@ function renderStepSynergy() {
     <div class="card">
       <h2>建築事業</h2>
       <p class="desc">リフォーム／自社請負（新築住宅事業）／他社建築紹介、それぞれの受注頻度・単価・利益率を設定します（デフォルト値は編集可能）。対応する事業そのものの選択は「目標設定」ステップで行います。</p>
+      <div id="preview-synergy"></div>
       ${synergyBlock('reform', 'リフォーム事業', sy.reform)}
       <hr class="section-divider">
       ${synergyBlock('selfBuild', '新築住宅事業（自社請負）', sy.selfBuild, `
@@ -398,7 +399,6 @@ function renderStepSynergy() {
           ${fieldNumber('年間上限件数（営業1名）', 'synergy.referral.capSolo', sy.referral.capSolo, { suffix: '件/年' })}
           ${fieldNumber('年間上限件数（営業2名以上）', 'synergy.referral.capTeam', sy.referral.capTeam, { suffix: '件/年' })}
         </div>`)}
-      <div id="preview-synergy"></div>
     </div>`;
 }
 function attachSynergyHandlers(container) {
@@ -412,15 +412,17 @@ function previewSynergy(result) {
     return `<tr><td>${esc(label)}</td><td>${num(s.annualFreq)}件/年</td><td>${yen(s.perDealProfit)}</td><td>${yen(s.annualProfit)}</td></tr>`;
   }
   return `
+    <div class="preview-panel">
     <h3>建築事業 利益イメージ</h3>
-    <table class="plain">
+    <table class="mini-table">
       <thead><tr><th>事業</th><th>年間受注頻度</th><th>1件あたり利益</th><th>年間利益</th></tr></thead>
       <tbody>
         ${row('リフォーム', bp.reform)}
         ${row('自社請負', bp.selfBuild)}
         ${row('他社紹介', bp.referral)}
       </tbody>
-    </table>`;
+    </table>
+    </div>`;
 }
 
 /* ===================== STEP 7: その他運営コスト ===================== */

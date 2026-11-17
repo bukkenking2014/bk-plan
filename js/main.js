@@ -61,11 +61,13 @@ function startApp() {
       } else {
         setActiveView(initialView());
         if (typeof bootDriveSync === 'function') bootDriveSync();
+        if (typeof showCloudAutoStatus === 'function') showCloudAutoStatus();
       }
     });
   } else {
     setActiveView(initialView());
     if (typeof bootDriveSync === 'function') bootDriveSync();
+        if (typeof showCloudAutoStatus === 'function') showCloudAutoStatus();
   }
 }
 if (document.readyState === 'loading') {
