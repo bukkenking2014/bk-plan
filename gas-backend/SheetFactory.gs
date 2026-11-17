@@ -219,9 +219,12 @@ function buildCharts_(ss) {
   sh.insertChart(c3);
 }
 
+const LINK_DOC_VERSION = 2;   // リンクのドキュメントの文面の版（2：「☁」の絵文字を外した）
 function saveLinkDoc_(folder, name, appUrl, companyName) {
   let file = findInFolder_(folder, name);
-  if (file && file.getDescription() === appUrl) return;   // URLが同じなら何もしない
+  // URLと文面の版が同じなら何もしない。文面を直したら LINK_DOC_VERSION を上げると、既存のドキュメントも書き換わる
+  const stamp = appUrl + '|' + LINK_DOC_VERSION;
+  if (file && file.getDescription() === stamp) return;
   let doc;
   if (file) doc = DocumentApp.openById(file.getId());
   else {
@@ -236,7 +239,7 @@ function saveLinkDoc_(folder, name, appUrl, companyName) {
   body.appendParagraph('▶ 事業計画シミュレーターを開く').setLinkUrl(appUrl);
   body.appendParagraph('※リンクで開くのは「保存」したデータです。入力した内容を反映するには、アプリの「保存」ボタンを押してください。');
   doc.saveAndClose();
-  file.setDescription(appUrl);
+  file.setDescription(stamp);
 }
 
 // keepInputs=true（更新時）：手入力欄（INPUT_ROWS）は上書きしない
