@@ -166,8 +166,9 @@ async function driveFilesPayload() {
   const out = { companyName: (appState.meta && appState.meta.companyName) || '' };
   if (!base) return out;
   try {
-    out.xlsxBase64 = bytesToBase64(await buildCurrentExcelBytes());
+    out.xlsxBase64 = bytesToBase64(await buildSummaryChartBytes());   // 「サマリー」「グラフ」だけの Excel
     out.xlsxName = base;
+    out.simCells = buildSimCells(appState, runFullCalculation(appState));   // ひな形に書き込む値
   } catch (e) { console.warn('Excelの作成に失敗', e); }
   const url = currentAppUrl();
   if (url) { out.appUrl = url; out.linkName = base + '（リンク）'; }

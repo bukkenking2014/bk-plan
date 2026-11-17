@@ -37,6 +37,7 @@ function doPost(e) {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (ACCESS_KEY && req.key !== ACCESS_KEY) return json_({ ok: false, error: '合言葉が違います' });
     if (req.action === 'ping') return json_({ ok: true });
+    if (req.action === 'importTemplate') return json_(importSimTemplate_(req));   // ひな形の取り込み（最初の1回だけ使う）
     if (req.action === 'create' || req.action === 'update') {
       // 自動更新が重なっても壊れないよう、1件ずつ順番に処理する
       const lock = LockService.getScriptLock();
@@ -143,7 +144,7 @@ function findInFolder_(folder, name) {
 function saveCompanyFiles_(folder, req) {
   const errs = [];
   if (req.xlsxBase64 && req.xlsxName) {
-    try { saveSimSheet_(folder, clean_(req.xlsxName, 80), req.xlsxBase64); }
+    try { saveSimSheet_(folder, clean_(req.xlsxName, 80), req); }
     catch (e) { errs.push('シミュレーター結果：' + String(e && e.message || e)); }
   }
   if (req.appUrl && req.linkName) {
@@ -153,29 +154,103 @@ function saveCompanyFiles_(folder, req) {
   return errs.join(' / ');
 }
 
-// シミュレーターの結果を、Google スプレッドシートとして会社フォルダに入れる（Excelの中身を変換して保存）。
-// 同名のスプレッドシートがあれば、中身だけ差し替える（ファイルIDは変わらない）。
-// 以前の版で作った同名の .xlsx（Excel）があれば、ごみ箱へ移す。
-function saveSimSheet_(folder, name, b64) {
-  const bytes = Utilities.base64Decode(b64);
-  let file = null;
-  const it = folder.getFilesByName(name);
-  while (it.hasNext()) { const f = it.next(); if (f.getMimeType() === MimeType.GOOGLE_SHEETS) { file = f; break; } }
-  if (!file) {
-    const ss = SpreadsheetApp.create(name);
-    file = DriveApp.getFileById(ss.getId());
-    file.moveTo(folder);
-  }
-  // Excelの中身を送ると、Drive が Google スプレッドシートの形式に変換して差し替える
-  const res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' + file.getId() + '?uploadType=media&supportsAllDrives=true', {
+// ---------------------------------------------------------------------------
+// シミュレーター結果のスプレッドシート（会社フォルダの「会社名_事業計画シミュレーター」）
+//   ・ひな形（事業計画書の12シート）を会社フォルダにコピーして使う。ひな形はルートフォルダの SIM_TEMPLATE_NAME。
+//   ・req.simCells … ひな形に書き込む値（シミュレーターの入力値・計算結果）。[{sheet, a1, values:[[...]]}]
+//   ・req.xlsxBase64 … 「サマリー」「グラフ」の2シートだけの Excel。変換して、ひな形のコピーの先頭に入れる。
+//   ・同名のスプレッドシートが既にあれば、中身（値・サマリー・グラフ）だけ差し替える。
+// ---------------------------------------------------------------------------
+const SIM_TEMPLATE_NAME = '事業計画シミュレーター_ひな形';
+const SIM_MARKER_SHEET = 'PL（1年目）';          // ひな形のシートがあるかの目印
+const SIM_FRONT_SHEETS = ['サマリー', 'グラフ'];   // 先頭に置くシミュレーター独自のシート
+const SIM_WORK_NAME = '_変換用ワーク（削除しないでください）';
+
+function simTemplateFile_() {
+  const it = rootFolder_().getFilesByName(SIM_TEMPLATE_NAME);
+  while (it.hasNext()) { const f = it.next(); if (f.getMimeType() === MimeType.GOOGLE_SHEETS) return f; }
+  return null;
+}
+
+// Excel形式のデータを、既存のスプレッドシート（ファイル）の中身として差し替える（Google形式に変換される）
+function overwriteSheetWithXlsx_(fileId, bytes) {
+  const res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media&supportsAllDrives=true', {
     method: 'patch', contentType: XLSX_MIME, payload: bytes, muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
   });
   if (res.getResponseCode() >= 300) throw new Error('スプレッドシートへの保存に失敗しました（' + res.getResponseCode() + '）' + res.getContentText().slice(0, 120));
+}
+
+// ひな形を取り込む：Excel（事業計画書_整形版）を Google スプレッドシートに変換して、ルートフォルダに置く
+function importSimTemplate_(req) {
+  if (!req.xlsxBase64) return { ok: false, error: 'xlsxBase64 がありません' };
+  let file = simTemplateFile_();
+  if (file && !req.overwrite) return { ok: true, existed: true, id: file.getId(), url: file.getUrl() };
+  if (!file) {
+    const ss = SpreadsheetApp.create(SIM_TEMPLATE_NAME);
+    file = DriveApp.getFileById(ss.getId());
+    file.moveTo(rootFolder_());
+  }
+  overwriteSheetWithXlsx_(file.getId(), Utilities.base64Decode(req.xlsxBase64));
+  return { ok: true, existed: false, id: file.getId(), url: file.getUrl() };
+}
+
+function saveSimSheet_(folder, name, req) {
+  let file = null;
+  const it = folder.getFilesByName(name);
+  while (it.hasNext()) { const f = it.next(); if (f.getMimeType() === MimeType.GOOGLE_SHEETS) { file = f; break; } }
+  // ひな形ではない古い形式（以前の版で作ったもの）は、作り直す
+  if (file && !SpreadsheetApp.openById(file.getId()).getSheetByName(SIM_MARKER_SHEET)) { file.setTrashed(true); file = null; }
+  if (!file) {
+    const tpl = simTemplateFile_();
+    if (!tpl) throw new Error('ひな形「' + SIM_TEMPLATE_NAME + '」が見つかりません');
+    file = tpl.makeCopy(name, folder);
+  }
+  const ss = SpreadsheetApp.openById(file.getId());
+  applySimCells_(ss, req.simCells || []);
+  if (req.xlsxBase64) mergeFrontSheets_(ss, Utilities.base64Decode(req.xlsxBase64));
+  buildCharts_(ss);
   const old = folder.getFilesByName(name + '.xlsx');
   while (old.hasNext()) old.next().setTrashed(true);
-  // 変換のたびにシートが作り直されてグラフが消えるので、毎回グラフを付け直す
-  buildCharts_(SpreadsheetApp.openById(file.getId()));
+}
+
+// ひな形のシートに値を書き込む（cells: [{sheet, a1, values:[[..]]}]）
+function applySimCells_(ss, cells) {
+  const sheets = {};
+  ss.getSheets().forEach(function (sh) { sheets[sh.getName()] = sh; });
+  const missing = {};
+  cells.forEach(function (c) {
+    const sh = sheets[c.sheet];
+    if (!sh) { missing[c.sheet] = true; return; }
+    const rows = c.values.length, cols = c.values[0].length;
+    sh.getRange(c.a1).offset(0, 0, rows, cols).setValues(c.values);
+  });
+  SpreadsheetApp.flush();
+  const names = Object.keys(missing);
+  if (names.length) throw new Error('ひな形にシートがありません：' + names.join('、'));
+}
+
+// 「サマリー」「グラフ」を、ワーク用スプレッドシート経由でひな形のコピーの先頭に入れる
+function mergeFrontSheets_(ss, bytes) {
+  let work = null;
+  const it = DriveApp.getRootFolder().getFilesByName(SIM_WORK_NAME);
+  while (it.hasNext()) { const f = it.next(); if (f.getMimeType() === MimeType.GOOGLE_SHEETS) { work = f; break; } }
+  if (!work) work = DriveApp.getFileById(SpreadsheetApp.create(SIM_WORK_NAME).getId());
+  overwriteSheetWithXlsx_(work.getId(), bytes);
+  const wss = SpreadsheetApp.openById(work.getId());
+  SIM_FRONT_SHEETS.forEach(function (n) {
+    const old = ss.getSheetByName(n);
+    if (old) ss.deleteSheet(old);
+  });
+  SIM_FRONT_SHEETS.forEach(function (n, i) {
+    const src = wss.getSheetByName(n);
+    if (!src) return;
+    const copied = src.copyTo(ss);
+    copied.setName(n);
+    ss.setActiveSheet(copied);
+    ss.moveActiveSheet(i + 1);
+  });
+  ss.setActiveSheet(ss.getSheetByName(SIM_FRONT_SHEETS[0]));
 }
 
 // 「グラフ」シートの表から、3つのグラフを作る（何度実行しても同じ結果になる）
