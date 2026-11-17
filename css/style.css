@@ -666,3 +666,8 @@ details.collapsible summary { cursor: pointer; font-weight: 700; color: var(--co
 
 /* ---- 自動保存の状態表示（ヘッダー） ---- */
 .cloud-auto-status{align-self:center;margin-right:10px;white-space:nowrap;font-size:12px}
+
+/* ---- 管理画面（会社を開いていない時のトップ） ---- */
+.admin-home{max-width:640px;margin:40px auto}
+.admin-home-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px}
+.btn-lg{padding:16px 30px;font-size:16px;min-height:56px}

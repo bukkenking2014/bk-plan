@@ -34,6 +34,9 @@ function startApp() {
   });
   if (typeof initCloudUI === 'function') initCloudUI();
 
+  // サーバー保存モードで、会社を開いていない（?id なし）時は、管理画面（新規作成・会社一覧）を出す
+  if (typeof serverMode !== 'undefined' && serverMode && !getCloudIdFromUrl()) { renderAdminHome(); return; }
+
   const cloudId = typeof getCloudIdFromUrl === 'function' ? getCloudIdFromUrl() : '';
   if (cloudId && typeof loadFromCloud === 'function') {
     const main = document.getElementById('appMain');
@@ -53,8 +56,8 @@ function startApp() {
           <div class="card">
             <h2>クラウド保存データの読み込みに失敗しました</h2>
             <p class="desc">${esc(result.error || '不明なエラー')}</p>
-            <p class="small text-muted">URLが正しいか、Apps Scriptが正しくデプロイされているかご確認ください。このまま進むと新規入力として開始します。</p>
-            <button class="btn-outline" id="cloudLoadFailContinueBtn" type="button">新規入力として進む</button>
+            <p class="small text-muted">URLが正しいかご確認ください。${typeof serverMode !== 'undefined' && serverMode ? '' : 'Apps Scriptが正しくデプロイされているかもご確認ください。このまま進むと新規入力として開始します。'}</p>
+            ${typeof serverMode !== 'undefined' && serverMode ? `<a class="btn-outline" href="${esc(appPageBase())}">管理画面へ戻る</a>` : '<button class="btn-outline" id="cloudLoadFailContinueBtn" type="button">新規入力として進む</button>'}
           </div>`;
         const btn = document.getElementById('cloudLoadFailContinueBtn');
         if (btn) btn.onclick = () => setActiveView('wizard');

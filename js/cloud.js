@@ -323,27 +323,47 @@ function saveToServer() {
   }));
 }
 
-// 「コピーして新規作成」：いま画面にある内容を丸ごとコピーして、別会社用のデータを作る（元は変更しない）。
-// 作成できたら、新しい会社の入力画面を別のタブですぐに開く（URLの表示はしない）。
-function copyAsNewCompany() {
+// 会社データを作って、その会社の入力画面を別のタブですぐに開く（URLの表示はしない）。
+// make() は新しい会社のIDで解決する Promise を返す関数。
+// 保存を待ってから開くとポップアップとして止められるため、クリックした直後に空のタブを先に開いておく。
+function createThenOpen(make) {
+  const tab = window.open('about:blank', '_blank');
+  return make().then(id => {
+    closeCloudModal();
+    const url = shareUrlFor(id);
+    if (tab) tab.location.href = url;
+    else location.assign(url);   // ポップアップが禁止されている場合は、このタブで開く
+    return id;
+  }).catch(e => { if (tab) tab.close(); throw e; });
+}
+
+// 「新規作成」：標準の初期値で新しい会社を作る。以後の入力は自動で保存される（meta.autoSave）。
+function createNewCompany(onCancel) {
   askCompanyName({
-    title: 'コピーして別の会社用を作成',
-    desc: 'いま画面にある内容をそのままコピーして、新しい会社用のデータを作ります。元のデータは変わりません。作成すると、新しい会社の入力画面が別のタブで開きます。以後の入力は自動で保存されます。',
-    value: '', okLabel: 'コピーを作成'
-  }, name => {
-    // 保存を待ってから開くとポップアップとして止められるため、クリックした直後に空のタブを先に開いておく
-    const tab = window.open('about:blank', '_blank');
-    const payload = Object.assign(payloadFor(appState, name), { copiedFrom: currentCloudId || undefined });
-    payload.data.meta.createdAt = new Date().toISOString().slice(0, 10);
-    payload.data.sheets = { url: '', folderUrl: '' };   // 元の会社のスプレッドシートを引き継がない（自動更新で上書きしないため）
-    payload.data.meta.autoSave = true;                  // コピーして作った会社は、以後の入力を自動で保存する
-    return apiCall('POST', 'api/companies', payload).then(failIfNotOk).then(j => {
-      closeCloudModal();
-      const url = shareUrlFor(j.id);
-      if (tab) tab.location.href = url;
-      else location.assign(url);   // ポップアップが禁止されている場合は、このタブで開く
-    }).catch(e => { if (tab) tab.close(); throw e; });
-  });
+    title: '新規作成',
+    desc: '標準の初期値で、新しい会社用のデータを作ります。作成すると入力画面が別のタブで開き、以後の入力は自動で保存されます。',
+    value: '', okLabel: '作成して開く', onCancel
+  }, name => createThenOpen(() => {
+    const st = createDefaultState();
+    st.meta.companyName = name; st.meta.autoSave = true;
+    return apiCall('POST', 'api/companies', { companyName: name, data: st, meta: {} }).then(failIfNotOk).then(j => j.id);
+  }));
+}
+
+/* ---- 管理画面（会社を開いていない時のトップ）：「新規作成」と「会社一覧」だけ ---- */
+function renderAdminHome() {
+  const main = document.getElementById('appMain');
+  main.innerHTML = `
+    <div class="card admin-home">
+      <h2>管理画面</h2>
+      <p class="desc">会社ごとの事業計画を作成・管理します。会社を作成すると、入力画面が別のタブで開きます。</p>
+      <div class="admin-home-actions">
+        <button type="button" class="btn-gold btn-lg" id="adminNewBtn">＋ 新規作成</button>
+        <button type="button" class="btn-outline btn-lg" id="adminListBtn">📁 会社一覧</button>
+      </div>
+    </div>`;
+  document.getElementById('adminNewBtn').onclick = () => createNewCompany();
+  document.getElementById('adminListBtn').onclick = () => openCompanyList();
 }
 
 /* ===================== 自動保存（コピーして新規作成した会社） =====================
@@ -453,8 +473,8 @@ function renderCompanyList(list, msg) {
       <td>${c.year2 === null ? '―' : yenAcctText(c.year2)}</td>
       <td>${esc(fmtDateTime(c.updatedAt))}</td>
       <td class="company-actions">
-        <button type="button" class="btn-gold btn-sm" data-act="open" data-id="${esc(c.id)}">開く</button>
-        <button type="button" class="btn-outline btn-sm" data-act="copy" data-id="${esc(c.id)}">コピー</button>
+        <a class="btn-gold btn-sm" href="${esc(shareUrlFor(c.id))}" target="_blank" rel="noopener">開く</a>
+        <button type="button" class="btn-outline btn-sm" data-act="copy" data-id="${esc(c.id)}">コピーして新規作成</button>
         <button type="button" class="btn-ghost btn-sm" data-act="del" data-id="${esc(c.id)}">削除</button>
       </td>
     </tr>`).join('');
@@ -462,30 +482,23 @@ function renderCompanyList(list, msg) {
     <h3>会社一覧（${list.length}社）</h3>
     ${msg ? `<p class="small" style="color:var(--color-ok)">${esc(msg)}</p>` : ''}
     <div class="field-row" style="margin-bottom:10px">
-      <button type="button" class="btn-gold btn-sm" id="listNewBtn">＋ 初期値から新規作成</button>
+      <button type="button" class="btn-gold btn-sm" id="listNewBtn">＋ 新規作成</button>
     </div>
     ${list.length ? `<div class="table-scroll"><table class="plain company-table">
       <thead><tr><th>会社名</th><th>オープン予定日</th><th>1年目 営業損益</th><th>2年目 営業損益</th><th>最終更新</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>` : '<p class="text-muted">まだ保存された会社がありません。「保存」またはコピーで会社を追加してください。</p>'}
     <p class="small text-muted" style="margin-top:10px">営業損益は最後に保存した時点の数字です。</p>`, true);
 
-  document.getElementById('listNewBtn').onclick = () => askCompanyName({
-    title: '初期値から新規作成', desc: '標準の初期値で、新しい会社用のデータを作ります。', value: '', okLabel: '作成して開く',
-    onCancel: () => openCompanyList()
-  }, name => {
-    const st = createDefaultState(); st.meta.companyName = name;
-    return apiCall('POST', 'api/companies', { companyName: name, data: st, meta: {} }).then(failIfNotOk)
-      .then(j => { location.assign(shareUrlFor(j.id)); });
-  });
+  document.getElementById('listNewBtn').onclick = () => createNewCompany(() => openCompanyList());
   document.querySelectorAll('#cloudModalBody [data-act]').forEach(btn => {
     btn.onclick = () => {
       const id = btn.getAttribute('data-id'); const act = btn.getAttribute('data-act');
       const c = list.find(x => x.id === id);
-      if (act === 'open') location.assign(shareUrlFor(id));
       if (act === 'copy') askCompanyName({
-        title: `「${c.companyName}」をコピー`, desc: '保存済みの内容をそのままコピーして、別の会社用を作ります。', value: '', okLabel: 'コピーを作成',
+        title: `「${c.companyName}」をコピーして新規作成`, desc: '保存済みの内容をそのままコピーして、別の会社用を作ります。作成すると入力画面が別のタブで開き、以後の入力は自動で保存されます。', value: '', okLabel: 'コピーを作成して開く',
         onCancel: () => openCompanyList()
-      }, name => apiCall('POST', `api/companies/${id}/copy`, { companyName: name }).then(failIfNotOk).then(() => openCompanyList(`「${name}」を作成しました。`)));
+      }, name => createThenOpen(() => apiCall('POST', `api/companies/${id}/copy`, { companyName: name }).then(failIfNotOk).then(j => j.id))
+        .then(() => openCompanyList(`「${name}」を作成しました（入力画面を別のタブで開きました）。`)));
       if (act === 'del' && confirm(`「${c.companyName}」のデータを完全に削除します。元に戻せません。よろしいですか？`)) {
         apiCall('DELETE', 'api/companies/' + id, undefined, true).then(j => {
           if (!j.ok) { alert(j.error || '削除できませんでした'); return; }
@@ -499,10 +512,13 @@ function renderCompanyList(list, msg) {
 
 function initServerUI(saveBtn, settingsBtn) {
   const box = document.querySelector('.cloud-actions');
-  if (saveBtn) { saveBtn.textContent = '☁ 保存'; saveBtn.title = '会社別データとして保存し、専用URLを発行します'; }
   if (settingsBtn) settingsBtn.remove(); // GAS接続設定は不要
-  if (!box || document.getElementById('cloudListBtn')) return;
-  const mk = (id, text, title, fn) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.className = 'btn-outline btn-sm'; b.textContent = text; b.title = title; b.onclick = fn; box.appendChild(b); };
-  mk('cloudCopyNewBtn', '📋 コピーして新規作成', 'いまの内容を別の会社用にコピーします', () => copyAsNewCompany());
-  mk('cloudListBtn', '📁 会社一覧', '保存済みの会社を一覧・管理します', () => openCompanyList());
+  if (!getCloudIdFromUrl()) {
+    // 会社を開いていない（管理画面）：ヘッダーのメニュー・保存ボタンは出さない
+    const nav = document.getElementById('appNav'); if (nav) nav.style.display = 'none';
+    if (box) box.style.display = 'none';
+    return;
+  }
+  // 会社を開いている時は「保存」だけ（「会社一覧」「コピーして新規作成」は出さない）
+  if (saveBtn) { saveBtn.textContent = '☁ 保存'; saveBtn.title = '会社別データとして保存します（自動保存の会社は、入力のたびに自動で保存されます）'; }
 }
