@@ -30,13 +30,15 @@ function buildSheetLinkRows(state, result) {
   ].map(v => Math.round(v || 0));
   const m0 = k => (pl2.lines[k] && pl2.lines[k][0]) || 0;
   const areas = st.areas || [];
+  // 決定事項の「ターゲットエリア」は最大6枠（左→右、上→下の順：D9, L9, D11, L11, D13, L13）。連続した6行に入れる
   const areaRows = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 6; i++) {
     const a = areas[i];
     areaRows.push([a ? (a.name || '') : '', a ? (Number(a.households) || 0) : 0]);
-    areaRows.push(['', 0]); // 雛型は2行1組（エリア名／世帯数の組が2枠ずつ）
   }
-  const estProps = areas.reduce((s, a) => s + ((Number(a.households) || 0) / 10000) * 100, 0);
+  // 予測物件数（事業検討!D4）＝世帯数ベースの推計と、レインズ物件数（合計物件数×1.1）の大きい方
+  const estByHouseholds = areas.reduce((s, a) => s + ((Number(a.households) || 0) / 10000) * 100, 0);
+  const estProps = Math.max(estByHouseholds, (r.areas && r.areas.rainsCount) || 0);
   const y1 = sum.year1, y2 = sum.year2;
   const rows = [
     ['連動データ（事業計画シミュレーターからコピー）', ''],
@@ -60,13 +62,13 @@ function buildSheetLinkRows(state, result) {
     ['研修費（月・コンサル費含む）', Math.round(m0('training') + m0('consulting'))],
     ['店舗経費（月）', Math.round(m0('storeRunning'))],
     ['想定売上（2年目・売上総損益 年間）', Math.round(pl2.grossProfitSumYear)],
-    ['インセンティブ原資（年額・入力）', 0],
-    ['予測物件数', Math.round(estProps)],
+    ['インセンティブ原資（年額・2年目PLのインセンティブ合計）', Math.round(pl2.lines.incentive.reduce((a, b) => a + b, 0))],
+    ['予測物件数', Math.round(estProps * 100) / 100],
     ['会員登録目標/月', Math.round(bp.targetLeads)],
     ['広告予算/月', Math.round(bp.ppcBudgetMonth)],
     ['広告予算/オープンより半年（月額）', Math.round(bp.ppcBudgetBoosted)]
   );
-  areaRows.forEach((ar, i) => rows.push([ar[0] || '', ar[1]])); // 30〜35行目
+  areaRows.forEach(ar => rows.push([ar[0] || '', ar[1]])); // 30〜35行目
   rows.push(['エリア数', Math.max(1, areas.length)]);
   // 決定事項の「売上（粗利益）イメージ」：PLの各行（按分した利益）をそのまま示す
   const gp = (y, key) => Math.round(y[key].amount);

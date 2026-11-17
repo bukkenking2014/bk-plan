@@ -92,6 +92,7 @@ function createCompanySheet_(req) {
   writeValues_(ss, req.rows, existed); // 既存ファイルの場合は手入力欄（B25）を上書きしない
   if (!existed) setTitles_(ss);
   try { softenColors_(ss); } catch (err) { /* 配色の調整に失敗しても作成は続ける */ }
+  try { fixTemplateSheets_(ss); } catch (err) { /* 書式の補正に失敗しても作成は続ける */ }
   let protectError = '';
   try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
   const filesError = saveCompanyFiles_(folder, req);
@@ -121,6 +122,7 @@ function updateValues_(req) {
   let protectError = '';
   if (!req.light) {
     try { softenColors_(ss); } catch (err) { /* 配色の調整に失敗しても更新は続ける */ }
+    try { fixTemplateSheets_(ss); } catch (err) { /* 書式の補正に失敗しても更新は続ける */ }
     try { applyProtection_(ss, file); } catch (err) { protectError = String(err && err.message || err); }
   }
   const filesError = saveCompanyFiles_(folder, req);
@@ -348,6 +350,41 @@ function lum_(c) { return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
 function mixRgb_(a, b, k) { return [0, 1, 2].map(function (i) { return a[i] * (1 - k) + b[i] * k; }); }
 
 // 戻り値：[新しい背景色, 新しい文字色]（変更なしなら、渡された値のまま）
+// ---------------------------------------------------------------------------
+// 雛型の書式の補正（元の「事業計画検討書」のシートに合わせる）
+//  ・能力判定：Step1〜の各ブロックの右側の太線／点数セルの色（条件付き書式）をやや濃く
+//  ・インセンティブ検討：勤続（経過月数）の式 T11:T14
+// ---------------------------------------------------------------------------
+const ABILITY_THICK_RIGHT = ["AC6", "AC8", "AN6", "AN8:AN9", "AN11:AN23", "AN27:AN35", "AN39:AN43", "AN47:AN56", "BA6", "BA8", "BL6", "BL8:BL9", "BL11:BL23", "BL27:BL35", "BL39:BL43", "BL47:BL56", "BY6", "BY8", "BY25", "BY37", "BY45", "BY58", "CJ6", "CJ8:CJ9", "CJ11:CJ23", "CJ25", "CJ27:CJ35", "CJ37", "CJ39:CJ43", "CJ45", "CJ47:CJ56", "CJ58", "AK11:AK23", "AK27:AK35", "AK39:AK43", "AK47:AK56", "BI11:BI23", "BI27:BI35", "BI39:BI43", "BI47:BI56", "CG11:CG23", "CG27:CG35", "CG39:CG43", "CG47:CG56"];
+const ABILITY_COLOR_MAP = { '#ccffcc': '#a3e8a3', '#ccecff': '#a3d9ff', '#ffccff': '#f5a8f5' };
+
+function fixTemplateSheets_(ss) {
+  const ab = ss.getSheetByName('能力判定');
+  if (ab) {
+    ABILITY_THICK_RIGHT.forEach(function (a1) {
+      ab.getRange(a1).setBorder(null, null, null, true, null, null, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    });
+    const rules = ab.getConditionalFormatRules();
+    let changed = false;
+    const next = rules.map(function (rule) {
+      let bg = null;
+      try { bg = rule.getBooleanCondition() && rule.getBooleanCondition().getBackground(); } catch (e) { bg = null; }
+      const to = bg && ABILITY_COLOR_MAP[String(bg).toLowerCase()];
+      if (!to) return rule;
+      changed = true;
+      return rule.copy().setBackground(to).build();
+    });
+    if (changed) ab.setConditionalFormatRules(next);
+  }
+  const inc = ss.getSheetByName('インセンティブ検討');
+  if (inc) {
+    for (let r = 11; r <= 14; r++) {
+      const cell = inc.getRange('T' + r);
+      if (!cell.getFormula() && cell.getValue() === '') cell.setFormula('=IF(AB' + r + '="","",($L$3-AB' + r + ')/30)');
+    }
+  }
+}
+
 function softenOne_(bg, fc) {
   const c = hexToRgb_(bg);
   if (!c || lum_(c) >= 0.87) return [bg, fc];
