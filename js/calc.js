@@ -303,7 +303,17 @@ function computeBusinessPlan(state, staff, areas, breakEven, license) {
     adBudgetMonthBase, adBudgetMonthBaseTax, adBudgetMonthBoostedTax,
     reform, selfBuild, referral,
     initialCostSubtotal, storeSetupSubtotal, initialCostTotal, initialCostTotalTax,
-    depreciationMonth, svConsultingApplies
+    depreciationMonth, svConsultingApplies,
+    // 簡易PLの「件数」：1年目は元シートの固定値（リフォーム2・自社請負1・他社紹介1）、
+    // 2年目はリフォーム6、自社請負・他社紹介は営業人数別の年間上限件数（事業検討!Q37/Q38）
+    summaryCounts: {
+      year1: { reform: 2, selfBuild: 1, referral: 1 },
+      year2: {
+        reform: 6,
+        selfBuild: staff.salesHeadcount === 1 ? synergy.selfBuild.capSolo : synergy.selfBuild.capTeam,
+        referral: staff.salesHeadcount === 1 ? synergy.referral.capSolo : synergy.referral.capTeam
+      }
+    }
   };
 }
 
@@ -392,10 +402,68 @@ function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
     reformCogs, selfBuildCogs, totalCogs, grossProfit,
     lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, incentive, initialSetup },
     sgaTotal, sgaTotalWithInitial, operatingIncome, ...extras,
+    sheet: null,
     sumFirstHalf: sumRange(totalRevenue, 0, 6), sumSecondHalf: sumRange(totalRevenue, 6, 12), sumYear: sumAll(totalRevenue),
     grossProfitSumYear: sumAll(grossProfit),
     sgaSumYear: sumAll(sgaTotal), opIncomeSumYear: sumAll(operatingIncome)
   };
+}
+
+/* ---------------------------------------------------------------------- */
+/* 元Excel「PL」シートそのままの表（行番号＝元シートの行）                        */
+/* 売上高・売上原価・売上総損益は契約金額ベース、営業損益は按分利益ベース（元シートの仕様）。 */
+/* 1ヵ月目の店舗組成費（イニシャル）を販売管理費に含む。CF（キャッシュ）系の行も同じ式。      */
+/* 簡易P&L・グラフ用の営業損益（pl.operatingIncome：店舗組成費を含まない）とは別に持つ。    */
+/* ---------------------------------------------------------------------- */
+function buildSheetPL(state, pl, businessPlan, initialSetup, openingCF) {
+  const R = {}; // 行番号 → 12ヵ月の配列
+  const z = () => Array(12).fill(0);
+  const L = pl.lines;
+  const sy = state.synergy;
+  const idx = range(12);
+  R[3] = pl.contracts; R[4] = pl.brokerageRevenue; R[5] = pl.reformRevenue; R[6] = pl.selfBuildRevenue; R[7] = pl.referralRevenue;
+  // 売上高（行2）＝仲介＋リフォーム／自社請負の契約金額（按分利益が発生する月）＋他社紹介
+  const reformSale = pl.reformRevenue.map(v => (v > 0 ? sy.reform.unitPrice : 0));
+  const selfSale = pl.selfBuildRevenue.map(v => (v > 0 ? sy.selfBuild.unitPrice : 0));
+  R[2] = idx.map(i => R[4][i] + reformSale[i] + selfSale[i] + R[7][i]);
+  // 売上原価（行8）＝契約金額×(1－利益率)
+  R[8] = idx.map(i => (reformSale[i] > 0 ? sy.reform.unitPrice * (1 - sy.reform.profitRate) : 0) + (selfSale[i] > 0 ? sy.selfBuild.unitPrice * (1 - sy.selfBuild.profitRate) : 0));
+  R[9] = idx.map(i => R[2][i] - R[8][i]);
+  R[11] = idx.map(i => L.salary[i] - L.legalWelfare[i]);
+  const lineRows = [[12, 'salary'], [13, 'legalWelfare'], [14, 'recruiting'], [15, 'adSpend'], [16, 'entertainment'], [17, 'travel'], [18, 'communication'], [19, 'consumables'], [20, 'officeSupplies'], [21, 'equipment'], [22, 'utilities'], [23, 'dues'], [24, 'lease'], [25, 'insurance'], [26, 'depreciation'], [27, 'tax'], [28, 'misc'], [29, 'training'], [30, 'consulting'], [31, 'storeRunning'], [32, 'incentive']];
+  lineRows.forEach(([r, k]) => { R[r] = L[k]; });
+  R[33] = initialSetup; R[34] = z(); R[35] = z();
+  const sumRows = (i, a, b) => { let t = 0; for (let r = a; r <= b; r++) if (R[r]) t += R[r][i]; return t; };
+  R[37] = idx.map(i => sumRows(i, 12, 33));
+  R[38] = idx.map(i => sumRows(i, 13, 33) + R[11][i] - R[26][i]);
+  R[40] = idx.map(i => R[4][i] + R[5][i] + R[6][i] + R[7][i] - R[37][i]);
+  R[41] = idx.map(i => R[9][i] - R[38][i]);
+  R[43] = pl.nonOperatingIncomeLines.interestIncome; R[44] = pl.nonOperatingIncomeLines.miscIncome;
+  R[45] = idx.map(i => R[43][i] + R[44][i]);
+  R[46] = pl.nonOperatingExpenseLines.interestExpense; R[47] = pl.nonOperatingExpenseLines.miscLoss;
+  R[48] = idx.map(i => R[46][i] + R[47][i]);
+  R[50] = idx.map(i => R[40][i] + R[45][i] - R[48][i]);
+  R[51] = idx.map(i => R[41][i] + R[45][i] - R[48][i]);
+  R[53] = pl.extraordinaryItems;
+  R[54] = idx.map(i => R[50][i] + R[53][i]);
+  R[55] = idx.map(i => R[51][i] + R[53][i]);
+  R[56] = pl.corporateTax;
+  R[57] = idx.map(i => R[54][i] - R[56][i]);
+  R[58] = idx.map(i => R[55][i] - R[56][i]);
+  R[60] = z(); R[61] = z();
+  R[59] = z(); R[62] = z(); R[68] = z();
+  for (let i = 0; i < 12; i++) {
+    R[59][i] = i === 0 ? (Number(openingCF) || 0) : R[68][i - 1];
+    R[62][i] = R[58][i] + R[59][i] - R[60][i] - R[61][i];
+    R[68][i] = R[62][i];
+  }
+  // 合計列：'sum'＝上期・下期・当期の合計／'close'＝期末の残高／'none'＝なし
+  const mode = {};
+  [59, 61].forEach(r => { mode[r] = 'none'; });
+  [62, 68].forEach(r => { mode[r] = 'close'; });
+  // 当期合計の売上総損益（行9のR列）は、元シートでは仲介＋建築シナジーの合計（行4〜7）として計算される
+  const grossYear = [4, 5, 6, 7].reduce((t, r) => t + sumAll(R[r]), 0);
+  return { rows: R, mode, closingCF: R[62][11], totalOverride: { 9: grossYear } };
 }
 
 /* ---------------------------------------------------------------------- */
@@ -560,6 +628,9 @@ function runFullCalculation(state) {
   const businessPlan = computeBusinessPlan(state, staff, areas, breakEven, license);
   const pl1 = computePL1(state, staff, areas, otherCostsAnnual, businessPlan);
   const pl2 = computePL2(state, staff, areas, otherCostsAnnual, businessPlan, pl1.closingAssets);
+  // 元Excel「PL」シートと同じ行構成の表（店舗組成費を1ヵ月目に含む・CF行あり）
+  pl1.sheet = buildSheetPL(state, pl1, businessPlan, zerosExceptFirst(businessPlan.initialCostTotalTax), 0);
+  pl2.sheet = buildSheetPL(state, pl2, businessPlan, Array(12).fill(0), pl1.sheet.closingCF);
   const summary = computeSummary(pl1, pl2);
   return { staff, areas, license, otherCostsAnnual, breakEven, businessPlan, pl1, pl2, summary };
 }

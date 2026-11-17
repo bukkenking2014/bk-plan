@@ -128,9 +128,9 @@ function renderSimplePLSection(result) {
         <thead><tr><th colspan="3">${esc(title)}</th></tr><tr><th>科目</th><th>件数</th><th>金額</th></tr></thead>
         <tbody>
           <tr><td>仲介手数料</td><td>${num(y.brokerage.count)}件</td><td>${yen(y.brokerage.amount)}</td></tr>
-          ${sy.reform.enabled ? `<tr><td>リフォーム</td><td>${num(bp.reform.annualFreq)}件</td><td>${yen(y.reform.amount)}</td></tr>` : ''}
-          ${sy.selfBuild.enabled ? `<tr><td>自社請負</td><td>${num(bp.selfBuild.annualFreq)}件</td><td>${yen(y.selfBuild.amount)}</td></tr>` : ''}
-          ${sy.referral.enabled ? `<tr><td>他社紹介</td><td>${num(bp.referral.annualFreq)}件</td><td>${yen(y.referral.amount)}</td></tr>` : ''}
+          ${sy.reform.enabled ? `<tr><td>リフォーム</td><td>${num(y === s.year1 ? bp.summaryCounts.year1.reform : bp.summaryCounts.year2.reform)}件</td><td>${yen(y.reform.amount)}</td></tr>` : ''}
+          ${sy.selfBuild.enabled ? `<tr><td>自社請負</td><td>${num(y === s.year1 ? bp.summaryCounts.year1.selfBuild : bp.summaryCounts.year2.selfBuild)}件</td><td>${yen(y.selfBuild.amount)}</td></tr>` : ''}
+          ${sy.referral.enabled ? `<tr><td>他社紹介</td><td>${num(y === s.year1 ? bp.summaryCounts.year1.referral : bp.summaryCounts.year2.referral)}件</td><td>${yen(y.referral.amount)}</td></tr>` : ''}
           <tr><td>売上高 合計</td><td></td><td>${yenAcct(y.totalRevenue)}</td></tr>
           <tr><td>売上総利益 合計</td><td></td><td>${yenAcct(y.grossProfit)}</td></tr>
           <tr><td>販売管理費 合計</td><td></td><td>${yen(y.sgaTotal)}</td></tr>
@@ -146,49 +146,54 @@ function renderSimplePLSection(result) {
     </section>`;
 }
 
+// 元Excel「PL」シートと同じ科目・並び・数字の月次表（金額は万円単位）
+const PL_SHEET_ROWS = [
+  [2, '売上高', 'pl-row-total-revenue'], [3, '【 仲介契約件数 】', 'count'], [4, '売買手数料', 'pl-row-brokerage'],
+  [5, 'リフォーム', 'pl-row-construction', 'reform'], [6, '自社請負', 'pl-row-construction', 'selfBuild'], [7, '他社紹介', 'pl-row-referral', 'referral'],
+  [8, '売上原価', ''], [9, '売上総損益', 'pl-row-gross-profit'],
+  [11, '従業員給料（CF）', 'pl-row-cf'],
+  [12, '従業員給料'], [13, '法定福利費'], [14, '採用教育費'], [15, '広告宣伝費'], [16, '接待交際費'], [17, '旅費交通費'], [18, '通信費'],
+  [19, '消耗品費'], [20, '事務用品費'], [21, '備品費'], [22, '水道光熱費'], [23, '諸会費'], [24, 'リース料'], [25, '保険料'],
+  [26, '減価償却費'], [27, '租税公課'], [28, '雑費'], [29, '研修費等'], [30, 'コンサル費（SV,PPC）'], [31, '店舗経費（ランニング）'],
+  [32, 'インセンティブ'], [33, '店舗組成費（イニシャル）'],
+  [37, '販売管理費計', 'row-highlight'], [38, '販売管理費計（CF）', 'pl-row-cf'],
+  [40, '営業損益', 'pl-row-operating-income'], [41, '営業損益（CF）', 'pl-row-cf'],
+  [43, '受取利息'], [44, '雑収入'], [45, '営業外収益', 'row-subtotal'], [46, '支払利息'], [47, '雑損失'], [48, '営業外費用', 'row-subtotal'],
+  [50, '経常損益', 'pl-row-ordinary-income'], [51, '経常損益（CF）', 'pl-row-cf'], [53, '特別利益・損失'],
+  [54, '税引前当期純損益', 'row-subtotal'], [55, '税引前当期純損益（CF）', 'pl-row-cf'], [56, '法人税等'],
+  [57, '当期純損益', 'pl-row-net-income'], [58, '当期純損益（CF）', 'pl-row-cf'],
+  [59, 'CF前月残高', 'pl-row-cf'], [60, '支払元本', 'pl-row-cf'], [61, '建設仮勘定', 'pl-row-cf'], [62, 'CF合計', 'pl-row-cf'],
+  [68, '総資産', 'row-subtotal']
+];
 function monthlyPLTable(pl) {
-  const lineLabels = [
-    ['salary', '従業員給料'], ['legalWelfare', '法定福利費'], ['recruiting', '採用教育費'],
-    ['adSpend', '広告宣伝費'], ['entertainment', '接待交際費'], ['travel', '旅費交通費'],
-    ['communication', '通信費'], ['consumables', '消耗品費'], ['officeSupplies', '事務用品費'],
-    ['equipment', '備品費'], ['utilities', '水道光熱費'], ['dues', '諸会費'], ['lease', 'リース料'],
-    ['insurance', '保険料'], ['depreciation', '減価償却費'], ['tax', '租税公課'], ['misc', '雑費'],
-    ['storeRunning', '店舗経費（ランニング）'], ['incentive', 'インセンティブ']
-  ];
-  const monthHeader = pl.months.map(m => `<th>${m}</th>`).join('');
-  // 万円単位・整数表示にして列数の多い月次PLを極力コンパクトにする（表全体はヘッダーに単位：万円と明記）
-  // 合計列：通常は12か月の合計。総資産だけは累計値なので、足し合わせずに期末の残高を出す
-  function row(label, arr, cls, closing) { return `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(label)}</td>${arr.map(v => `<td>${manUnitAcct(v)}</td>`).join('')}<td>${manUnitAcct(closing ? arr[arr.length - 1] : sumAll(arr))}</td></tr>`; }
-  function countRow(label, arr) { return `<tr><td>${esc(label)}</td>${arr.map(v => `<td>${num(v)}件</td>`).join('')}<td>${num(sumAll(arr))}件</td></tr>`; }
-  const lineRows = lineLabels.map(([key, label]) => row(label, pl.lines[key])).join('');
-  // 目標設定ステップで対応しない設定にした建築シナジー事業は、金額が常に0でも行ごと非表示にする
+  const sh = pl.sheet;
   const sy = appState.synergy;
-  // 営業外収益＝受取利息＋雑収入、営業外費用＝支払利息＋雑損失
+  const sum = (a, f, t) => a.slice(f, t).reduce((x, v) => x + v, 0);
+  // 月の列：1〜6ヵ月・上期合計・7〜12ヵ月・下期合計・当期合計
+  const head = pl.months.slice(0, 6).map(m => `<th>${m}</th>`).join('') + '<th class="pl-total-col">上期合計</th>'
+    + pl.months.slice(6).map(m => `<th>${m}</th>`).join('') + '<th class="pl-total-col">下期合計</th><th class="pl-total-col">当期合計</th>';
+  function cells(r, kind) {
+    const a = sh.rows[r];
+    const f = kind === 'count' ? (v => `<td>${num(v)}</td>`) : (v => `<td>${manUnitAcct(v)}</td>`);
+    const ft = kind === 'count' ? (v => `<td class="pl-total-col">${num(v)}</td>`) : (v => `<td class="pl-total-col">${manUnitAcct(v)}</td>`);
+    const mode = sh.mode[r] || 'sum';
+    let t1, t2, t3; // 上期・下期・当期
+    if (mode === 'none') { t1 = t2 = t3 = null; }
+    else if (mode === 'close') { t1 = a[5]; t2 = a[11]; t3 = a[11]; }
+    else { t1 = sum(a, 0, 6); t2 = sum(a, 6, 12); t3 = sh.totalOverride[r] !== undefined ? sh.totalOverride[r] : sum(a, 0, 12); }
+    const tc = v => (v === null ? '<td class="pl-total-col"></td>' : ft(v));
+    return a.slice(0, 6).map(f).join('') + tc(t1) + a.slice(6).map(f).join('') + tc(t2) + tc(t3);
+  }
+  const rows = PL_SHEET_ROWS.map(([r, label, cls, syKey]) => {
+    if (syKey && !sy[syKey].enabled) return '';
+    const kind = cls === 'count' ? 'count' : '';
+    return `<tr${cls && cls !== 'count' ? ` class="${cls}"` : ''}><td>${esc(label)}</td>${cells(r, kind)}</tr>`;
+  }).join('');
   return `
     <div class="table-scroll">
     <table class="plain pl-table-compact">
-      <thead><tr><th>科目（単位：万円）</th>${monthHeader}<th>合計</th></tr></thead>
-      <tbody>
-        ${countRow('仲介契約件数', pl.contracts)}
-        ${row('仲介手数料', pl.brokerageRevenue, 'pl-row-brokerage')}
-        ${sy.reform.enabled ? row('リフォーム', pl.reformRevenue, 'pl-row-construction') : ''}
-        ${sy.selfBuild.enabled ? row('自社請負', pl.selfBuildRevenue, 'pl-row-construction') : ''}
-        ${sy.referral.enabled ? row('他社紹介', pl.referralRevenue, 'pl-row-referral') : ''}
-        ${row('売上高 合計', pl.totalRevenue, 'pl-row-total-revenue')}
-        ${lineRows}
-        ${row('研修費', pl.lines.training)}
-        ${row('コンサル費（SV・PPC）', pl.lines.consulting)}
-        ${row('販売管理費 計', pl.sgaTotal, 'row-highlight')}
-        ${row('営業損益', pl.operatingIncome, 'pl-row-operating-income')}
-        ${row('営業外収益', pl.nonOperatingIncome, 'row-subtotal')}
-        ${row('営業外費用', pl.nonOperatingExpense, 'row-subtotal')}
-        ${row('経常損益', pl.ordinaryIncome, 'pl-row-ordinary-income')}
-        ${row('特別利益・損失', pl.extraordinaryItems)}
-        ${row('税引前当期純損益', pl.incomeBeforeTax, 'row-subtotal')}
-        ${row('法人税等', pl.corporateTax)}
-        ${row('当期純損益', pl.netIncome, 'pl-row-net-income')}
-        ${row('総資産（期末残高）', pl.cumulativeAssets, 'row-subtotal', true)}
-      </tbody>
+      <thead><tr><th>勘定科目（単位：万円）</th>${head}</tr></thead>
+      <tbody>${rows}</tbody>
     </table>
     </div>`;
 }
@@ -197,7 +202,7 @@ function renderMonthlyPLSection(result) {
   return `
     <section class="report-section pl-monthly">
       <h2><span class="num">04</span> 月次P&L</h2>
-      <p class="small text-muted">金額は万円単位です。横にスクロールしても科目名は左端に固定表示されます。仲介手数料・建築費（リフォーム／自社請負）・紹介料（他社紹介）は科目名を色分けしています。</p>
+      <p class="small text-muted">金額は万円単位です。横にスクロールしても科目名は左端に固定表示されます。科目・並び・数字は事業計画検討書（Excel）のPLシートと同じです。1年目の販売管理費・営業損益には1ヵ月目の店舗組成費（イニシャル）を含みます（上の簡易P&Lは含めません）。（CF）の行はキャッシュ（資金）ベースの計算です。</p>
       <h3>PL（1年目）月次詳細</h3>
       ${monthlyPLTable(result.pl1)}
       <h3 class="pl-second">PL（2年目以降）月次詳細</h3>

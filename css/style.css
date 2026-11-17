@@ -673,3 +673,8 @@ details.collapsible summary { cursor: pointer; font-weight: 700; color: var(--co
 .admin-home-head h2{margin:0}
 .admin-home-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px}
 .btn-lg{padding:16px 30px;font-size:16px;min-height:56px}
+
+/* 月次PL：上期・下期・当期の合計列と、CF（キャッシュ）系の行 */
+table.plain.pl-table-compact th.pl-total-col, table.plain.pl-table-compact td.pl-total-col { background: #eef2f4; font-weight: 700; border-left: 1px solid #cfd8dc; border-right: 1px solid #cfd8dc; }
+table.plain.pl-table-compact tr.pl-row-cf td { color: #6b7780; font-style: italic; }
+table.plain.pl-table-compact tr.pl-row-cf td.pl-total-col { background: #f4f6f7; }

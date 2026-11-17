@@ -88,34 +88,22 @@ function simInputCells(state) {
 }
 
 /* ---------------- PL（1年目／2年目以降）：月次の数字をシミュレーターの結果で入れる ---------------- */
-// [行, 取り出し方]。月の列は D〜I（前半6ヵ月）・K〜P（後半6ヵ月）、J＝上期合計、Q＝下期合計、R＝当期合計。
-function simPlRows(pl) {
-  const z = Array(12).fill(0);
-  const L = pl.lines;
-  return [
-    [2, pl.totalRevenue], [3, pl.contracts], [4, pl.brokerageRevenue], [5, pl.reformRevenue], [6, pl.selfBuildRevenue], [7, pl.referralRevenue],
-    [8, pl.totalCogs], [9, pl.grossProfit],
-    [12, L.salary], [13, L.legalWelfare], [14, L.recruiting], [15, L.adSpend], [16, L.entertainment], [17, L.travel], [18, L.communication],
-    [19, L.consumables], [20, L.officeSupplies], [21, L.equipment], [22, L.utilities], [23, L.dues], [24, L.lease], [25, L.insurance],
-    [26, L.depreciation], [27, L.tax], [28, L.misc], [29, L.training], [30, L.consulting], [31, L.storeRunning],
-    [32, L.incentive],
-    [33, z],            // 店舗組成費（イニシャル）：シミュレーターの損益には含めない（事業検討シートに記載）
-    [37, pl.sgaTotal], [40, pl.operatingIncome],
-    [43, pl.nonOperatingIncomeLines.interestIncome], [44, pl.nonOperatingIncomeLines.miscIncome], [45, pl.nonOperatingIncome],
-    [46, pl.nonOperatingExpenseLines.interestExpense], [47, pl.nonOperatingExpenseLines.miscLoss], [48, pl.nonOperatingExpense],
-    [50, pl.ordinaryIncome], [53, pl.extraordinaryItems], [54, pl.incomeBeforeTax], [56, pl.corporateTax], [57, pl.netIncome]
-  ];
-}
+// 元シートのPL行そのまま（pl.sheet）。月の列は D〜I（前半6ヵ月）・K〜P（後半6ヵ月）、J＝上期合計、Q＝下期合計、R＝当期合計。
+const SIM_PL_ROWS = [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+  37, 38, 40, 41, 43, 44, 45, 46, 47, 48, 50, 51, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 68];
 function simPlCells(sheet, pl) {
   const out = [];
-  simPlRows(pl).forEach(([row, arr]) => {
-    const v = arr.map(simNum);
+  const sh = pl.sheet;
+  SIM_PL_ROWS.forEach(row => {
+    const v = sh.rows[row].map(simNum);
+    const mode = sh.mode[row] || 'sum';
+    let t1, t2, t3;
+    if (mode === 'none') { t1 = t2 = t3 = ''; }
+    else if (mode === 'close') { t1 = v[5]; t2 = v[11]; t3 = ''; }
+    else { t1 = simSum(v, 0, 6); t2 = simSum(v, 6, 12); t3 = sh.totalOverride[row] !== undefined ? simNum(sh.totalOverride[row]) : simSum(v, 0, 12); }
     // D..R の15列：前半6ヵ月, 上期合計, 後半6ヵ月, 下期合計, 当期合計
-    out.push(simRow(sheet, 'D' + row, [...v.slice(0, 6), simSum(v, 0, 6), ...v.slice(6, 12), simSum(v, 6, 12), simSum(v, 0, 12)]));
+    out.push(simRow(sheet, 'D' + row, [...v.slice(0, 6), t1, ...v.slice(6, 12), t2, t3]));
   });
-  // 総資産（累計）：行68（合計列なし）
-  const a = pl.cumulativeAssets.map(simNum);
-  out.push(simRow(sheet, 'D68', [...a.slice(0, 6), '', ...a.slice(6, 12), '', '']));
   return out;
 }
 

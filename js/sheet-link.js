@@ -383,39 +383,6 @@ function renderSheetLinksSection() {
           </div>
           <p class="small">作成先：Googleドライブ「事業計画書」→「${esc(sheetFolderName() || '会社名')}」／ ファイル名：${esc(fname || '会社名_事業計画')}</p>` : `
           <p class="small">この会社のスプレッドシートはまだ登録されていません。</p>`)}
-
-        <details class="sheet-manual" ${!ok && !auto ? 'open' : ''}>
-          <summary>${auto ? '手動で作る・URLを登録する場合' : '作り方（手動）'}</summary>
-          <div class="sheet-manual-body">
-            <div class="sheet-manual-row">
-              <a class="btn-outline" id="sheetCopyTemplateBtn" href="${templateCopy}" target="_blank" rel="noopener">① 雛型をコピーして作成</a>
-              <span class="small">コピー画面の名前欄に、次のファイル名を入れてください：</span>
-              <button type="button" class="btn-outline btn-sm" id="sheetCopyNameBtn" ${fname ? '' : 'disabled'}>${esc(fname || '（会社名を入力してください）')}　📋</button>
-            </div>
-            <div class="sheet-manual-row">
-              <button type="button" class="btn-outline" id="sheetCopyDataBtn">② 連動データをコピー</button>
-              <span class="small">コピー先の「連動データ」シートのA1に貼り付け</span>
-            </div>
-            <div class="sheet-url-row">
-              <label for="sheetUrlInput" class="small">③ 作成したスプレッドシートのURLを登録</label>
-              <input type="url" id="sheetUrlInput" class="sheet-url-input" placeholder="https://docs.google.com/spreadsheets/d/…" value="${esc(url)}">
-              <button type="button" class="btn-outline" id="sheetUrlSaveBtn">登録</button>
-            </div>
-            <p class="small sheet-howto">ドライブでは「事業計画書」フォルダの中に会社名のフォルダを作り、そこへ入れてください。会社データを保存すると、次回から事業計画書のボタンで開けます。</p>
-          </div>
-        </details>
-
-        <details class="sheet-manual">
-          <summary>自動作成の連携設定${auto ? '（設定済み）' : '（未設定）'}</summary>
-          <div class="sheet-manual-body">
-            <p class="small">管理者が Apps Script（gas-backend/SheetFactory.gs）をデプロイして発行したURLを登録すると、ボタン1つで会社フォルダとスプレッドシートが作られます。設定方法は gas-backend/README_GAS_SETUP.md を参照してください。</p>
-            <div class="sheet-url-row">
-              <input type="url" id="sheetFactoryUrl" class="sheet-url-input" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(factory.url)}">
-              <input type="text" id="sheetFactoryKey" class="sheet-key-input" placeholder="合言葉（設定した場合のみ）" value="${esc(factory.key)}" autocomplete="off">
-              <button type="button" class="btn-outline" id="sheetFactorySaveBtn">保存</button>
-            </div>
-          </div>
-        </details>
       </div>
       ${ok ? `<p class="print-only small">スプレッドシート：${esc(url)}</p>` : ''}
     </section>`;
