@@ -59,6 +59,12 @@ function pct(n, digits) {
   if (n === null || n === undefined || isNaN(n)) return '―';
   return (n * 100).toLocaleString('ja-JP', { maximumFractionDigits: digits === undefined ? 1 : digits }) + '%';
 }
+// 小数点以下を桁数ぶん必ず表示する（56% ではなく 56.0%）
+function pctFixed(n, digits) {
+  if (n === null || n === undefined || isNaN(n)) return '―';
+  const d = digits === undefined ? 1 : digits;
+  return (n * 100).toLocaleString('ja-JP', { minimumFractionDigits: d, maximumFractionDigits: d }) + '%';
+}
 function esc(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

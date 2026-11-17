@@ -186,19 +186,20 @@ function previewAreas(result) {
     <tr>
       <td>${esc(PROPERTY_TYPE_LABELS[t])}</td>
       <td>${num(a.typeTotals[t].count)}件</td>
-      <td>${man(a.typeTotals[t].amountMan)}</td>
+      <td>${man(a.typeTotals[t].avgPriceMan)}</td>
     </tr>`).join('');
   return `
     <div class="preview-panel">
       <h3>ターゲットエリア分析概要</h3>
       <div class="preview-grid">
+        <div class="preview-stat"><div class="label">レインズ物件数（全エリア合計×1.1）</div><div class="value">${num(a.rainsCount)}<small>件</small></div></div>
         <div class="preview-stat"><div class="label">全エリア合計物件数</div><div class="value">${num(a.totalCount)}<small>件</small></div></div>
         <div class="preview-stat"><div class="label">加重平均 手数料/件</div><div class="value">${man(a.avgFeeManOverall)}</div></div>
-        <div class="preview-stat"><div class="label">土地／中古系／新築 構成比</div><div class="value" style="font-size:1em">${pct(a.landRatio,0)} / ${pct(a.usedRatio,0)} / ${pct(a.newRatio,0)}</div></div>
+        <div class="preview-stat"><div class="label">土地／中古系／新築 構成比</div><div class="value" style="font-size:1em">${pctFixed(a.landRatio,1)} / ${pctFixed(a.usedRatio,1)} / ${pctFixed(a.newRatio,1)}</div></div>
       </div>
-      <h4>種別ごとの合計件数・金額（全エリア合計）</h4>
+      <h4>種別ごとの合計件数・平均価格（全エリア合計）</h4>
       <table class="mini-table">
-        <thead><tr><th>種別</th><th>合計件数</th><th>合計金額</th></tr></thead>
+        <thead><tr><th>種別</th><th>合計件数</th><th>平均価格</th></tr></thead>
         <tbody>${typeRows}</tbody>
       </table>
       <p class="small" style="margin:14px 0 4px">物件種別ごとの手数料・基本構成比（数式に連動して自動更新されます）</p>

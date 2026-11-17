@@ -116,14 +116,20 @@ function computeAreas(state) {
   // 種別（土地／中古戸建／新築戸建／マンション）ごとの全エリア合計件数・金額
   const typeTotals = {};
   PROPERTY_TYPES.forEach(t => {
+    const count = details.reduce((s, d) => s + d.counts[t], 0);
     typeTotals[t] = {
-      count: details.reduce((s, d) => s + d.counts[t], 0),
-      amountMan: details.reduce((s, d) => s + d.counts[t] * d.fees[t], 0)
+      count,
+      amountMan: details.reduce((s, d) => s + d.counts[t] * d.fees[t], 0),
+      // 全エリアを通した平均価格（件数で重み付け。万円）。件数0なら null
+      avgPriceMan: count === 0 ? null : details.reduce((s, d) => s + d.counts[t] * d.prices[t], 0) / count
     };
   });
 
+  // レインズ物件数 = 全エリア合計物件数 × 1.1
+  const rainsCount = totalCount * 1.1;
+
   return {
-    details, totalCount, totalRevenueMan, avgFeeManOverall,
+    details, totalCount, rainsCount, totalRevenueMan, avgFeeManOverall,
     landRatio, usedRatio, newRatio, householdsTotal, typeTotals,
     feeRawYen, feeRoundedYen
   };

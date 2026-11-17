@@ -323,16 +323,26 @@ function saveToServer() {
   }));
 }
 
-// 「コピーして新規作成」：いま画面にある内容を丸ごとコピーして、別会社用のデータを作る（元は変更しない）
+// 「コピーして新規作成」：いま画面にある内容を丸ごとコピーして、別会社用のデータを作る（元は変更しない）。
+// 作成できたら、新しい会社の入力画面を別のタブですぐに開く（URLの表示はしない）。
 function copyAsNewCompany() {
   askCompanyName({
     title: 'コピーして別の会社用を作成',
-    desc: 'いま画面にある内容をそのままコピーして、新しい会社用のデータを作ります。元のデータは変わりません。作成後は新しい会社の専用URLに切り替わります。',
+    desc: 'いま画面にある内容をそのままコピーして、新しい会社用のデータを作ります。元のデータは変わりません。作成すると、新しい会社の入力画面が別のタブで開きます。',
     value: '', okLabel: 'コピーを作成'
-  }, name => apiCall('POST', 'api/companies', Object.assign(payloadFor(appState, name), { copiedFrom: currentCloudId || undefined })).then(failIfNotOk).then(j => {
-    appState.meta.companyName = name; appState.meta.createdAt = new Date().toISOString().slice(0, 10); saveState();
-    afterServerSave(j.id, name); if (typeof setActiveView === 'function') setActiveView(activeView);
-  }));
+  }, name => {
+    // 保存を待ってから開くとポップアップとして止められるため、クリックした直後に空のタブを先に開いておく
+    const tab = window.open('about:blank', '_blank');
+    const payload = Object.assign(payloadFor(appState, name), { copiedFrom: currentCloudId || undefined });
+    payload.data.meta.createdAt = new Date().toISOString().slice(0, 10);
+    payload.data.sheets = { url: '', folderUrl: '' };   // 元の会社のスプレッドシートを引き継がない（自動更新で上書きしないため）
+    return apiCall('POST', 'api/companies', payload).then(failIfNotOk).then(j => {
+      closeCloudModal();
+      const url = shareUrlFor(j.id);
+      if (tab) tab.location.href = url;
+      else location.assign(url);   // ポップアップが禁止されている場合は、このタブで開く
+    }).catch(e => { if (tab) tab.close(); throw e; });
+  });
 }
 
 /* ---- 会社一覧（保存済みの会社を貯めて管理） ---- */
