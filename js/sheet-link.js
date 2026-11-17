@@ -57,7 +57,7 @@ function buildSheetLinkRows(state, result) {
     ['リース料（月）', Math.round(m0('lease'))],
     ['租税公課（月）', Math.round(m0('tax'))],
     ['雑費（月）', Math.round(m0('misc'))],
-    ['研修費（月）', Math.round(m0('training'))],
+    ['研修費（月・コンサル費含む）', Math.round(m0('training') + m0('consulting'))],
     ['店舗経費（月）', Math.round(m0('storeRunning'))],
     ['想定売上（2年目・売上総損益 年間）', Math.round(pl2.grossProfitSumYear)],
     ['インセンティブ原資（年額・入力）', 0],
@@ -68,16 +68,16 @@ function buildSheetLinkRows(state, result) {
   );
   areaRows.forEach((ar, i) => rows.push([ar[0] || '', ar[1]])); // 30〜35行目
   rows.push(['エリア数', Math.max(1, areas.length)]);
-  // 決定事項の「売上（粗利益）イメージ」：リフォーム・自社請負は売上から原価を引いた粗利益で示す
-  const gp = (y, key, cfg) => Math.round(y[key].amount * (cfg && cfg.enabled ? cfg.profitRate : 0));
+  // 決定事項の「売上（粗利益）イメージ」：PLの各行（按分した利益）をそのまま示す
+  const gp = (y, key) => Math.round(y[key].amount);
   rows.push(
     ['1年目 仲介手数料（粗利益）', Math.round(y1.brokerage.amount)],
-    ['1年目 リフォーム（粗利益）', gp(y1, 'reform', st.synergy.reform)],
-    ['1年目 自社請負（粗利益）', gp(y1, 'selfBuild', st.synergy.selfBuild)],
+    ['1年目 リフォーム（粗利益）', gp(y1, 'reform')],
+    ['1年目 自社請負（粗利益）', gp(y1, 'selfBuild')],
     ['1年目 他社紹介（粗利益）', Math.round(y1.referral.amount)],
     ['2年目 仲介手数料（粗利益）', Math.round(y2.brokerage.amount)],
-    ['2年目 リフォーム（粗利益）', gp(y2, 'reform', st.synergy.reform)],
-    ['2年目 自社請負（粗利益）', gp(y2, 'selfBuild', st.synergy.selfBuild)],
+    ['2年目 リフォーム（粗利益）', gp(y2, 'reform')],
+    ['2年目 自社請負（粗利益）', gp(y2, 'selfBuild')],
     ['2年目 他社紹介（粗利益）', Math.round(y2.referral.amount)]
   );
   return rows;

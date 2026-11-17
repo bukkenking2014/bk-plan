@@ -153,7 +153,7 @@ function monthlyPLTable(pl) {
     ['communication', '通信費'], ['consumables', '消耗品費'], ['officeSupplies', '事務用品費'],
     ['equipment', '備品費'], ['utilities', '水道光熱費'], ['dues', '諸会費'], ['lease', 'リース料'],
     ['insurance', '保険料'], ['depreciation', '減価償却費'], ['tax', '租税公課'], ['misc', '雑費'],
-    ['storeRunning', '店舗経費（ランニング）']
+    ['storeRunning', '店舗経費（ランニング）'], ['incentive', 'インセンティブ']
   ];
   const monthHeader = pl.months.map(m => `<th>${m}</th>`).join('');
   // 万円単位・整数表示にして列数の多い月次PLを極力コンパクトにする（表全体はヘッダーに単位：万円と明記）
@@ -161,8 +161,6 @@ function monthlyPLTable(pl) {
   function row(label, arr, cls, closing) { return `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(label)}</td>${arr.map(v => `<td>${manUnitAcct(v)}</td>`).join('')}<td>${manUnitAcct(closing ? arr[arr.length - 1] : sumAll(arr))}</td></tr>`; }
   function countRow(label, arr) { return `<tr><td>${esc(label)}</td>${arr.map(v => `<td>${num(v)}件</td>`).join('')}<td>${num(sumAll(arr))}件</td></tr>`; }
   const lineRows = lineLabels.map(([key, label]) => row(label, pl.lines[key])).join('');
-  // 研修費（成長投資費）＝研修費＋コンサル費（SV,PPC）を合算した1行で表示（入力を1項目に統一したのに合わせる）
-  const trainingCombined = pl.lines.training.map((v, i) => v + pl.lines.consulting[i]);
   // 目標設定ステップで対応しない設定にした建築シナジー事業は、金額が常に0でも行ごと非表示にする
   const sy = appState.synergy;
   // 営業外収益＝受取利息＋雑収入、営業外費用＝支払利息＋雑損失
@@ -177,10 +175,9 @@ function monthlyPLTable(pl) {
         ${sy.selfBuild.enabled ? row('自社請負', pl.selfBuildRevenue, 'pl-row-construction') : ''}
         ${sy.referral.enabled ? row('他社紹介', pl.referralRevenue, 'pl-row-referral') : ''}
         ${row('売上高 合計', pl.totalRevenue, 'pl-row-total-revenue')}
-        ${row('売上原価', pl.totalCogs)}
-        ${row('売上総利益', pl.grossProfit, 'pl-row-gross-profit')}
         ${lineRows}
-        ${row('研修費（成長投資費）', trainingCombined)}
+        ${row('研修費', pl.lines.training)}
+        ${row('コンサル費（SV・PPC）', pl.lines.consulting)}
         ${row('販売管理費 計', pl.sgaTotal, 'row-highlight')}
         ${row('営業損益', pl.operatingIncome, 'pl-row-operating-income')}
         ${row('営業外収益', pl.nonOperatingIncome, 'row-subtotal')}

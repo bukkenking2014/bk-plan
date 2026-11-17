@@ -263,6 +263,7 @@ function renderStepGoals() {
       <hr class="section-divider">
       <div class="field-row">
         ${fieldNumber('2年目以降の年間営業利益目標', 'targetProfitAnnual', appState.targetProfitAnnual, { suffix: '円/年', hint: '損益分岐点に上乗せする目標利益（任意、0でも可）' })}
+        ${fieldNumber('確定契約件数/月（任意）', 'confirmedOverride', appState.confirmedOverride, { suffix: '件/月', hint: '0（未入力）＝損益分岐点＋利益目標から自動算出。閑散期も均した件数を自分で決める場合に入力（元の事業検討シート F11）' })}
       </div>
     </div>`;
 }
@@ -444,7 +445,6 @@ function renderStepCosts() {
       <p class="desc" style="margin-top:-4px">免許費用（免許「無し」の場合のみ自動計上）に加え、以下は免許の有無に関わらず計上されます。</p>
       <div class="field-row">
         ${fieldNumber('物件王 加盟金', 'initialCost.franchiseFee', ic.franchiseFee, { suffix: '円' })}
-        ${fieldNumber('物件王会費', 'initialCost.membershipFee', ic.membershipFee, { suffix: '円' })}
         ${fieldNumber('看板設置費用', 'initialCost.signageCost', ic.signageCost, { suffix: '円' })}
       </div>
       <h3>消耗品費・事務用品費・諸会費</h3>
@@ -459,8 +459,14 @@ function renderStepCosts() {
         ${fieldNumber('雑費', 'otherCosts.misc', oc.misc, { suffix: '円/年', dual: { label: '月換算：', factor: 1 / 12 } })}
       </div>
       <div class="field-row">
-        ${fieldNumber('研修費（成長投資費）', 'otherCosts.training', oc.training, { suffix: '円/月', dual: { label: '年換算：', factor: 12 }, hint: 'PPCコンサル費・SVコンサル費を含む合計額を入力してください' })}
+        ${fieldNumber('研修費', 'otherCosts.training', oc.training, { suffix: '円/月', dual: { label: '年換算：', factor: 12 } })}
+        ${fieldNumber('PPCコンサル費', 'otherCosts.ppcConsulting', oc.ppcConsulting, { suffix: '円/月', dual: { label: '年換算：', factor: 12 }, hint: '1年目・2年目とも毎月計上' })}
+        ${fieldNumber('SVコンサル費', 'otherCosts.svConsulting', oc.svConsulting, { suffix: '円/月', dual: { label: '年換算：', factor: 12 }, hint: '前半6ヵ月のみ計上（加盟金420万円未満の場合）' })}
+      </div>
+      <h3>店舗経費（ランニング）・採用費</h3>
+      <div class="field-row">
         ${fieldNumber('店舗賃料', 'otherCosts.storeRent', oc.storeRent, { suffix: '円/月', dual: { label: '年換算：', factor: 12 }, hint: '備考：家賃等が発生する場合は計上' })}
+        ${fieldNumber('物件王会費', 'otherCosts.membership', oc.membership, { suffix: '円/月', dual: { label: '年換算：', factor: 12 }, hint: '備考：年払いの場合は240万円（20万円/月）' })}
         ${fieldNumber('採用費', 'otherCosts.recruiting', oc.recruiting, { suffix: '円（初月一括）', hint: '備考：想定年収×35%' })}
       </div>
       <h3>旅費交通費・通信費・租税公課・備品費（自動算出）</h3>
@@ -490,6 +496,11 @@ function renderStepCosts() {
       <div class="field-row">
         ${fieldNumber('接待交際費', 'otherCosts.entertainment', oc.entertainment, { suffix: '円/月', dual: { label: '年換算：', factor: 12 }, hint: '備考：店長等に予算を設けるのであれば設定' })}
         ${fieldNumber('保険料', 'otherCosts.insurance', oc.insurance, { suffix: '円/月', dual: { label: '年換算：', factor: 12 }, hint: '備考：火災保険や自動車保険等加入の場合計上' })}
+      </div>
+      <h3>インセンティブ（仲介手数料のみ反映）</h3>
+      <div class="field-row">
+        ${fieldNumber('足切り係数', 'incentive.cutoffFactor', appState.incentive.cutoffFactor, { suffix: '倍', hint: '給与合計 × 係数 を超えた仲介手数料が対象' })}
+        ${fieldNumber('インセンティブ率', 'incentive.rate', Math.round(appState.incentive.rate * 1000) / 10, { suffix: '%', percent: true, hint: '足切りを超えた分に掛ける率' })}
       </div>
       <h3>減価償却（内装工事等）</h3>
       <div class="field-row">

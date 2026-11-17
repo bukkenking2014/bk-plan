@@ -172,8 +172,8 @@ function computeOtherCostsAnnual(state, staff) {
   const taxMonth = nonNeg(state.confirmedContractsPerMonth) * 10000;
   // 研修費（成長投資費）: L41(月)=L42+L43+L44, L40(年)=L41*12
   const growthInvestMonth = oc.training + oc.ppcConsulting + oc.svConsulting;
-  // 店舗経費（ランニング）: L47(月)=賃料（店舗会費は廃止）
-  const storeRunningMonth = oc.storeRent;
+  // 店舗経費（ランニング）: L47(月)=L45 店舗賃料 + L46 物件王会費（月額）
+  const storeRunningMonth = oc.storeRent + nonNeg(oc.membership);
 
   // O62 = (L47*12)+L40+L37+L34+L31+L28+L26+L24+L21+L18+L15+L12
   const total =
@@ -217,14 +217,16 @@ function computeBreakEven(state, staff, areas, otherCostsAnnual) {
   const targetProfitContractsYear = feeRawYen === 0 ? 0 : Math.ceil(nonNeg(state.targetProfitAnnual) / feeRawYen);
   const targetProfitContractsMonth = Math.ceil(targetProfitContractsYear / 12);
 
-  // G25 = Y16+Y21　目標とする契約件数/月　　P25 = G25*12
-  const targetContractsMonth = requiredContractsMonth + targetProfitContractsMonth;
+  // G25 = IF(F11>0, F11, Y16+Y21)　目標とする契約件数/月（F11＝手入力の確定件数）　　P25 = G25*12
+  const autoContractsMonth = requiredContractsMonth + targetProfitContractsMonth;
+  const confirmedOverride = nonNeg(state.confirmedOverride);
+  const targetContractsMonth = confirmedOverride > 0 ? confirmedOverride : autoContractsMonth;
   const targetContractsYear = targetContractsMonth * 12;
 
-  // AB24:AB26　目標とする契約件数の種別内訳
-  const targetLandCount = Math.ceil(targetContractsYear * areas.landRatio);
-  const targetUsedCount = targetContractsYear * areas.usedRatio;
-  const targetNewCount = targetContractsYear * areas.newRatio;
+  // AB24:AB26　目標とする契約件数の種別内訳（ROUNDDOWN）
+  const targetLandCount = Math.floor(targetContractsYear * areas.landRatio);
+  const targetUsedCount = Math.floor(targetContractsYear * areas.usedRatio);
+  const targetNewCount = Math.floor(targetContractsYear * areas.newRatio);
 
   // 表示用参考値（AF16,AI16,AO16）
   const referenceAnnualContracts = requiredContractsMonth * 12;
@@ -234,7 +236,7 @@ function computeBreakEven(state, staff, areas, otherCostsAnnual) {
   return {
     breakEvenAnnual, requiredContractsYear, requiredContractsMonth,
     targetProfitContractsYear, targetProfitContractsMonth,
-    targetContractsMonth, targetContractsYear,
+    autoContractsMonth, confirmedOverride, targetContractsMonth, targetContractsYear,
     targetLandCount, targetUsedCount, targetNewCount,
     referenceAnnualContracts, referenceAnnualRevenue, referenceOperatingSurplus
   };
@@ -284,8 +286,7 @@ function computeBusinessPlan(state, staff, areas, breakEven, license) {
   // 【その他費用】年額→月額換算まとめ（既にステージ1で計算済のため再掲のみ）
 
   // 【店舗組成費（イニシャル）】
-  // 会費（協会入会金等）は免許有無に関わらず常に計上する
-  const initialCostSubtotal = license.costInBusinessPlan + state.initialCost.franchiseFee + state.initialCost.membershipFee; // L53
+  const initialCostSubtotal = license.costInBusinessPlan + state.initialCost.franchiseFee; // L53（L50:L52）
   const storeSetupSubtotal = state.otherCosts.renovationCostBasis + state.initialCost.signageCost; // L56（内装工事費用＋看板設置費用）
   const initialCostTotal = initialCostSubtotal + storeSetupSubtotal; // L57
   const initialCostTotalTax = initialCostTotal * 1.1; // L58（税込）
@@ -307,6 +308,16 @@ function computeBusinessPlan(state, staff, areas, breakEven, license) {
 }
 
 /* ---------------------------------------------------------------------- */
+/* インセンティブ（PL行32）：仲介手数料が「給与合計×足切り係数」を超えた分×率   */
+/* ---------------------------------------------------------------------- */
+function computeIncentive(state, staff, brokerageRevenue) {
+  const inc = state.incentive || {};
+  const cutoff = staff.laborCostMonth * nonNeg(inc.cutoffFactor); // 事業検討!F54
+  const rate = nonNeg(inc.rate); // 事業検討!D58
+  return brokerageRevenue.map(v => (v > cutoff ? (v - cutoff) * rate : 0));
+}
+
+/* ---------------------------------------------------------------------- */
 /* 7. PL（1年目） 月次                                                    */
 /* ---------------------------------------------------------------------- */
 function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
@@ -319,24 +330,24 @@ function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
   const brokerageRevenue = contracts.map(c => c * fee);
 
   // リフォーム・自社請負・他社紹介（1年目は稼働半年想定のため限定的に計上）
-  // ExcelのPLシートでは、発生月に「按分利益（H36/D37等）が発生しているか」を判定条件としつつ、
-  // 実際に売上高へ計上される金額は単価（S36/S37）そのもの（=IF(D5>0,事業検討!$S$36,0)）。
-  // 原価（=単価×(100%-利益率)）と対で計上して初めて、差額（単価×利益率）が正味の利益として残る。
+  // 元Excel（PL（1年目）行5:7）どおり、建築シナジーは「按分した利益」を売上として計上する
+  // （リフォーム＝事業検討!H36を9〜12ヵ月目、自社請負＝D37を12ヵ月目、他社紹介＝D38を9・11ヵ月目）。
+  // 契約金額と原価は計上しない（簡易PL・決定事項の数字はこの基準）。
   const reformRevenue = Array(12).fill(0);
-  for (let i = 8; i <= 11; i++) reformRevenue[i] = businessPlan.reform.annualFreq > 0 ? businessPlan.reform.unitPrice : 0; // M5:P5
+  for (let i = 8; i <= 11; i++) reformRevenue[i] = businessPlan.reform.monthlyEquivalent; // M5:P5
   const selfBuildRevenue = Array(12).fill(0);
-  selfBuildRevenue[11] = businessPlan.selfBuild.annualFreq > 0 ? businessPlan.selfBuild.unitPrice : 0; // P6
+  selfBuildRevenue[11] = businessPlan.selfBuild.perDealProfit; // P6
   const referralRevenue = Array(12).fill(0);
   referralRevenue[8] = businessPlan.referral.perDealProfit; // M7
   referralRevenue[10] = businessPlan.referral.perDealProfit; // O7
 
   const totalRevenue = range(12).map(i => brokerageRevenue[i] + reformRevenue[i] + selfBuildRevenue[i] + referralRevenue[i]);
 
-  // 原価（リフォーム・自社請負のみ、発生月に単発フルコストを計上）
-  const reformCogs = reformRevenue.map(v => (v > 0 ? businessPlan.reform.cogsPerDeal : 0));
-  const selfBuildCogs = selfBuildRevenue.map(v => (v > 0 ? businessPlan.selfBuild.cogsPerDeal : 0));
-  const totalCogs = range(12).map(i => reformCogs[i] + selfBuildCogs[i]);
-  const grossProfit = range(12).map(i => totalRevenue[i] - totalCogs[i]);
+  // 売上原価は計上しない（按分利益ベースのため、売上総利益＝売上高）
+  const reformCogs = Array(12).fill(0);
+  const selfBuildCogs = Array(12).fill(0);
+  const totalCogs = Array(12).fill(0);
+  const grossProfit = totalRevenue.slice();
 
   // 販管費
   const oc = state.otherCosts;
@@ -361,26 +372,25 @@ function computePL1(state, staff, areas, otherCostsAnnual, businessPlan) {
   const training = Array(12).fill(oc.training);
   const consulting = range(12).map(i => oc.ppcConsulting + (i < 6 && businessPlan.svConsultingApplies ? oc.svConsulting : 0));
   const storeRunning = Array(12).fill(otherCostsAnnual.storeRunningMonth);
+  const incentive = computeIncentive(state, staff, brokerageRevenue); // 行32
   const initialSetup = zerosExceptFirst(businessPlan.initialCostTotalTax);
 
   const sgaTotal = range(12).map(i =>
     salary[i] + legalWelfare[i] + recruiting[i] + adSpend[i] + entertainment[i] + travel[i] +
     communication[i] + consumables[i] + officeSupplies[i] + equipment[i] + utilities[i] +
     dues[i] + lease[i] + insurance[i] + depreciation[i] + tax[i] + misc[i] + training[i] +
-    consulting[i] + storeRunning[i]
+    consulting[i] + storeRunning[i] + incentive[i]
   );
   const sgaTotalWithInitial = range(12).map(i => sgaTotal[i] + initialSetup[i]);
 
-  // 営業損益＝売上総利益（売上高－売上原価）－販売管理費。以前は売上原価を差し引かずに
-  // 売上高からそのまま販管費を引いていたバグがあり、原価が計上される月ほど営業損益が
-  // 過大に出ていた（結果的に経常損益・当期純損益・黒字化グラフにも影響していた）。
+  // 営業損益＝売上高（仲介＋建築シナジー按分利益）－販売管理費（店舗組成費は含めない：簡易PLと同じ基準）
   const operatingIncome = range(12).map(i => grossProfit[i] - sgaTotal[i]);
   const extras = computePLExtras(state, operatingIncome, 0);
 
   return {
     months: MONTHS_1, contracts, brokerageRevenue, reformRevenue, selfBuildRevenue, referralRevenue, totalRevenue,
     reformCogs, selfBuildCogs, totalCogs, grossProfit,
-    lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, initialSetup },
+    lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, incentive, initialSetup },
     sgaTotal, sgaTotalWithInitial, operatingIncome, ...extras,
     sumFirstHalf: sumRange(totalRevenue, 0, 6), sumSecondHalf: sumRange(totalRevenue, 6, 12), sumYear: sumAll(totalRevenue),
     grossProfitSumYear: sumAll(grossProfit),
@@ -428,10 +438,11 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, opening
   const contracts = Array(12).fill(F11);
   const brokerageRevenue = contracts.map(c => c * fee);
 
-  // PL1同様、按分利益が発生している月は単価そのものを売上計上し、原価（単価×(100%-利益率)）と対で計上する
-  const reformRevenue = Array(12).fill(businessPlan.reform.annualFreq > 0 ? businessPlan.reform.unitPrice : 0);
+  // PL1同様、建築シナジーは按分した利益を売上として計上する
+  // （リフォーム＝H36を毎月、自社請負＝H37を3ヵ月ごと、他社紹介＝H38を隔月（営業2名以上は増える））
+  const reformRevenue = Array(12).fill(businessPlan.reform.monthlyEquivalent);
   const selfBuildRevenue = Array(12).fill(0);
-  [2, 5, 8, 11].forEach(i => (selfBuildRevenue[i] = businessPlan.selfBuild.annualFreq > 0 ? businessPlan.selfBuild.unitPrice : 0));
+  [2, 5, 8, 11].forEach(i => (selfBuildRevenue[i] = businessPlan.selfBuild.quarterlyEquivalent));
   const referralRevenue = Array(12).fill(0);
   [0, 6].forEach(i => (referralRevenue[i] = businessPlan.referral.bimonthlyEquivalent));
   if (staff.salesHeadcount > 1) {
@@ -439,10 +450,10 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, opening
   }
 
   const totalRevenue = range(12).map(i => brokerageRevenue[i] + reformRevenue[i] + selfBuildRevenue[i] + referralRevenue[i]);
-  const reformCogs = reformRevenue.map(v => (v > 0 ? businessPlan.reform.cogsPerDeal : 0));
-  const selfBuildCogs = selfBuildRevenue.map(v => (v > 0 ? businessPlan.selfBuild.cogsPerDeal : 0));
-  const totalCogs = range(12).map(i => reformCogs[i] + selfBuildCogs[i]);
-  const grossProfit = range(12).map(i => totalRevenue[i] - totalCogs[i]);
+  const reformCogs = Array(12).fill(0);
+  const selfBuildCogs = Array(12).fill(0);
+  const totalCogs = Array(12).fill(0);
+  const grossProfit = totalRevenue.slice();
 
   const oc = state.otherCosts;
   const salary = Array(12).fill(staff.laborCostMonth);
@@ -463,15 +474,17 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, opening
   const tax = Array(12).fill(otherCostsAnnual.taxMonth);
   const misc = Array(12).fill(roundUp(oc.misc / 12, -2));
   const training = Array(12).fill(oc.training);
-  const consulting = Array(12).fill(oc.ppcConsulting); // 2年目はSVコンサル無し
+  // コンサル費：PL（2年目以降）も1年目と同じ（前半6ヵ月はSV＋PPC、後半はPPCのみ）
+  const consulting = range(12).map(i => oc.ppcConsulting + (i < 6 && businessPlan.svConsultingApplies ? oc.svConsulting : 0));
   const storeRunning = Array(12).fill(otherCostsAnnual.storeRunningMonth);
+  const incentive = computeIncentive(state, staff, brokerageRevenue); // 行32
   const initialSetup = Array(12).fill(0);
 
   const sgaTotal = range(12).map(i =>
     salary[i] + legalWelfare[i] + recruiting[i] + adSpend[i] + entertainment[i] + travel[i] +
     communication[i] + consumables[i] + officeSupplies[i] + equipment[i] + utilities[i] +
     dues[i] + lease[i] + insurance[i] + depreciation[i] + tax[i] + misc[i] + training[i] +
-    consulting[i] + storeRunning[i]
+    consulting[i] + storeRunning[i] + incentive[i]
   );
   const operatingIncome = range(12).map(i => grossProfit[i] - sgaTotal[i]);
   const extras = computePLExtras(state, operatingIncome, Number(openingAssets) || 0); // 前年の赤字繰越もあり得るため0クランプしない
@@ -479,7 +492,7 @@ function computePL2(state, staff, areas, otherCostsAnnual, businessPlan, opening
   return {
     months: MONTHS_2, contracts, brokerageRevenue, reformRevenue, selfBuildRevenue, referralRevenue, totalRevenue,
     reformCogs, selfBuildCogs, totalCogs, grossProfit,
-    lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, initialSetup },
+    lines: { salary, legalWelfare, recruiting, adSpend, entertainment, travel, communication, consumables, officeSupplies, equipment, utilities, dues, lease, insurance, depreciation, tax, misc, training, consulting, storeRunning, incentive, initialSetup },
     sgaTotal, operatingIncome, ...extras,
     sumFirstHalf: sumRange(totalRevenue, 0, 6), sumSecondHalf: sumRange(totalRevenue, 6, 12), sumYear: sumAll(totalRevenue),
     grossProfitSumYear: sumAll(grossProfit),
@@ -532,11 +545,17 @@ function runFullCalculation(state) {
   const staff = computeStaff(state);
   const areas = computeAreas(state);
   const license = computeLicense(state);
-  const otherCostsAnnual = computeOtherCostsAnnual(state, staff);
-  const breakEven = computeBreakEven(state, staff, areas, otherCostsAnnual);
-  // 必要契約件数/月は目標契約件数/月（損益分岐点＋利益目標から自動算出）へ常に同期させる
-  // （旧仕様の手動入力欄は廃止）。otherCostsAnnual側の租税公課は前回計算時点の値を参照する
-  // 形になるが、循環参照を避けるための割り切りであり、再計算のたびに収束する。
+  // 確定契約件数/月（事業検討!F11）：手入力（confirmedOverride）があればそれを採用、
+  // 無ければ目標契約件数/月（損益分岐点＋利益目標から自動算出）。租税公課（＝件数×1万円）が損益分岐点に
+  // 影響するため、自動算出のときは件数が変わらなくなるまで数回繰り返して収束させる。
+  if (nonNeg(state.confirmedOverride) > 0) state.confirmedContractsPerMonth = nonNeg(state.confirmedOverride);
+  let otherCostsAnnual = computeOtherCostsAnnual(state, staff);
+  let breakEven = computeBreakEven(state, staff, areas, otherCostsAnnual);
+  for (let i = 0; i < 6 && state.confirmedContractsPerMonth !== breakEven.targetContractsMonth; i++) {
+    state.confirmedContractsPerMonth = breakEven.targetContractsMonth;
+    otherCostsAnnual = computeOtherCostsAnnual(state, staff);
+    breakEven = computeBreakEven(state, staff, areas, otherCostsAnnual);
+  }
   state.confirmedContractsPerMonth = breakEven.targetContractsMonth;
   const businessPlan = computeBusinessPlan(state, staff, areas, breakEven, license);
   const pl1 = computePL1(state, staff, areas, otherCostsAnnual, businessPlan);

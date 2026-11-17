@@ -179,7 +179,7 @@ const XL_PL_LINES = [
   ['communication', '通信費'], ['consumables', '消耗品費'], ['officeSupplies', '事務用品費'],
   ['equipment', '備品費'], ['utilities', '水道光熱費'], ['dues', '諸会費'], ['lease', 'リース料'],
   ['insurance', '保険料'], ['depreciation', '減価償却費'], ['tax', '租税公課'], ['misc', '雑費'],
-  ['storeRunning', '店舗経費（ランニング）']
+  ['storeRunning', '店舗経費（ランニング）'], ['incentive', 'インセンティブ']
 ];
 
 // opening: 前年シートの総資産期末セル参照（例 "'月次PL_1年目'!M40"）。1年目はnull。
@@ -194,7 +194,6 @@ function xlsxMonthlyPL(book, name, title, pl, sy, opening) {
   sh.set(3, 14, '合計', XL.head);
   sh.freeze = { r: 4, c: 2 };
 
-  const trainingCombined = pl.lines.training.map((v, i) => v + pl.lines.consulting[i]);
   const items = [];
   items.push({ k: 'contracts', label: '仲介契約件数', vals: pl.contracts, kind: 'count' });
   items.push({ k: 'brokerage', label: '仲介手数料', vals: pl.brokerageRevenue, lab: '04756D' });
@@ -203,10 +202,9 @@ function xlsxMonthlyPL(book, name, title, pl, sy, opening) {
   if (sy.selfBuild.enabled) { items.push({ k: 'selfBuild', label: '自社請負', vals: pl.selfBuildRevenue, lab: 'C97E00' }); revKeys.push('selfBuild'); }
   if (sy.referral.enabled) { items.push({ k: 'referral', label: '他社紹介', vals: pl.referralRevenue, lab: '2563EB' }); revKeys.push('referral'); }
   items.push({ k: 'totalRevenue', label: '売上高 合計', vals: pl.totalRevenue, kind: 'f', color: 'totalRevenue' });
-  items.push({ k: 'cogs', label: '売上原価', vals: pl.totalCogs });
-  items.push({ k: 'gross', label: '売上総利益', vals: pl.grossProfit, kind: 'f', color: 'gross' });
   XL_PL_LINES.forEach(([key, label]) => items.push({ k: 'sga_' + key, label, vals: pl.lines[key] }));
-  items.push({ k: 'sga_training', label: '研修費（成長投資費）', vals: trainingCombined });
+  items.push({ k: 'sga_training', label: '研修費', vals: pl.lines.training });
+  items.push({ k: 'sga_consulting', label: 'コンサル費（SV・PPC）', vals: pl.lines.consulting });
   items.push({ k: 'sgaTotal', label: '販売管理費 計', vals: pl.sgaTotal, kind: 'f', fill: 'FEF0D9' });
   items.push({ k: 'operating', label: '営業損益', vals: pl.operatingIncome, kind: 'f', color: 'operating' });
   items.push({ k: 'nonOpIncome', label: '営業外収益', vals: pl.nonOperatingIncome, fill: 'EEF1F7' });
@@ -220,7 +218,7 @@ function xlsxMonthlyPL(book, name, title, pl, sy, opening) {
 
   const row = {};
   items.forEach((it, i) => { row[it.k] = 4 + i; });
-  const sgaFirst = row['sga_salary'], sgaLast = row['sga_training'];
+  const sgaFirst = row['sga_salary'], sgaLast = row['sga_consulting'];
 
   items.forEach(it => {
     const r = row[it.k];
@@ -233,9 +231,8 @@ function xlsxMonthlyPL(book, name, title, pl, sy, opening) {
       const col = xlsxCol(2 + i);
       let f = null;
       if (it.k === 'totalRevenue') f = revKeys.map(k => col + row[k]).join('+');
-      else if (it.k === 'gross') f = `${col}${row.totalRevenue}-${col}${row.cogs}`;
       else if (it.k === 'sgaTotal') f = `SUM(${col}${sgaFirst}:${col}${sgaLast})`;
-      else if (it.k === 'operating') f = `${col}${row.gross}-${col}${row.sgaTotal}`;
+      else if (it.k === 'operating') f = `${col}${row.totalRevenue}-${col}${row.sgaTotal}`;
       else if (it.k === 'ordinary') f = `${col}${row.operating}+${col}${row.nonOpIncome}-${col}${row.nonOpExpense}`;
       else if (it.k === 'preTax') f = `${col}${row.ordinary}+${col}${row.extra}`;
       else if (it.k === 'net') f = `${col}${row.preTax}-${col}${row.corpTax}`;
@@ -409,7 +406,7 @@ function xlsxInputSheet(book, state, result) {
   item('CVR（反響獲得率）', s.ad.cvr, 'pct'); item('ポータルサイト費用', s.ad.portal, 'int', '円/月');
   item('査定サイト費用', s.ad.assessmentSite, 'int', '円/月'); item('その他広告費①', s.ad.other1, 'int', '円/月'); item('その他広告費②', s.ad.other2, 'int', '円/月');
   r++; section('店舗組成費（イニシャル）');
-  item('物件王 加盟金', s.initialCost.franchiseFee, 'int', '円'); item('物件王会費', s.initialCost.membershipFee, 'int', '円'); item('看板設置費用', s.initialCost.signageCost, 'int', '円');
+  item('物件王 加盟金', s.initialCost.franchiseFee, 'int', '円'); item('看板設置費用', s.initialCost.signageCost, 'int', '円');
   r++; section('免許');
   item('宅建免許', s.license.hasLicense ? '有り' : '無し');
   s.license.items.forEach(i => item('　' + i.label, i.amount, 'int', '円'));
@@ -417,7 +414,8 @@ function xlsxInputSheet(book, state, result) {
   const oc = s.otherCosts;
   [['消耗品費', oc.consumables, '円/年'], ['事務用品費', oc.officeSupplies, '円/年'], ['諸会費', oc.dues, '円/年'],
     ['水道光熱費', oc.utilities, '円/年'], ['リース料', oc.lease, '円/年'], ['雑費', oc.misc, '円/年'],
-    ['研修費（成長投資費）', oc.training, '円/月'], ['店舗賃料', oc.storeRent, '円/月'], ['採用費', oc.recruiting, '円（初月一括）'],
+    ['研修費', oc.training, '円/月'], ['PPCコンサル費', oc.ppcConsulting, '円/月'], ['SVコンサル費', oc.svConsulting, '円/月'],
+    ['店舗賃料', oc.storeRent, '円/月'], ['物件王会費', oc.membership, '円/月'], ['採用費', oc.recruiting, '円（初月一括）'],
     ['接待交際費', oc.entertainment, '円/月'], ['保険料', oc.insurance, '円/月'],
     ['内装工事費用（減価償却対象）', oc.renovationCostBasis, '円'], ['想定PPC費用（損益分岐点算出用）', oc.assumedPpcAnnual, '円/年']]
     .forEach(([l, v, u]) => item(l, v, 'int', u));

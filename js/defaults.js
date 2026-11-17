@@ -61,7 +61,10 @@ function createDefaultState() {
     // 目標設定シート B21（2年目以降の年間営業利益目標）
     targetProfitAnnual: 0,
 
-    // 事業検討シート F11（確定契約件数/月、閑散期も均した数値）
+    // 事業検討シート F11（確定契約件数/月、閑散期も均した数値）。
+    // confirmedOverride＝手入力の確定件数（0＝未入力＝損益分岐点＋利益目標から自動算出）。
+    // confirmedContractsPerMonth は実際に採用される件数（計算結果の同期用。直接は編集しない）。
+    confirmedOverride: 0,
     confirmedContractsPerMonth: 3,
 
     // 事業検討シート D38/K38/U38（対応事業トグル）＋各種入力
@@ -110,12 +113,12 @@ function createDefaultState() {
       utilities: 600000, // L28 水道光熱費/年
       lease: 320000, // L31 リース料/年
       misc: 240000, // L37 雑費/年
-      // 研修費（成長投資費）: L42研修費+L43 PPCコンサル+L44 SVコンサルの合計を1項目にまとめて入力する
-      // （既定値 50,000+10,000+250,000=310,000）。ppcConsulting/svConsultingは後方互換のため残すが常に0固定。
-      training: 310000,
-      ppcConsulting: 0,
-      svConsulting: 0,
+      // 研修費（成長投資費）: L42 研修費／L43 PPCコンサル／L44 SVコンサル（円/月）
+      training: 50000,
+      ppcConsulting: 10000,
+      svConsulting: 250000,
       storeRent: 0, // 店舗賃料/月（家賃等発生する場合）
+      membership: 240000, // L46 物件王会費/月（店舗経費ランニング。年払いの場合は240万＝20万/月）
       recruiting: 0, // C43 採用費/年（想定年収×35%目安）
       entertainment: 0, // B44 接待交際費/月
       insurance: 0, // B45 保険料/月
@@ -128,7 +131,13 @@ function createDefaultState() {
     initialCost: {
       franchiseFee: 3500000, // L51 物件王加盟金
       signageCost: 300000, // L55 看板設置費用
-      membershipFee: 0 // 会費（協会入会金等）※免許有無に関わらず新規出店時に発生しうる会費。編集可
+      membershipFee: 0 // （旧）初期費用としての会費。現在は otherCosts.membership（月額）へ移行済み。常に0
+    },
+
+    // 事業検討シート【インセンティブ（仲手のみ反映）】B54:D58
+    incentive: {
+      cutoffFactor: 3, // D54 足切り係数（給与合計×係数を超えた仲介手数料が対象）
+      rate: 0.2 // D58 インセンティブ率
     },
 
     // PL（1年目）／PL（2年目以降）シートの営業外・特別損益～当期純損益ブロック

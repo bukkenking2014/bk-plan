@@ -12,11 +12,34 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return createDefaultState();
     const parsed = JSON.parse(raw);
-    return fixCorruptedPercentFields(deepMerge(createDefaultState(), parsed));
+    return buildStateFrom(parsed);
   } catch (e) {
     console.warn('state load failed, using defaults', e);
     return createDefaultState();
   }
+}
+
+// 保存済みデータ（raw）から状態を組み立てる：初期値とマージ → 旧バージョンの項目を移行 → 割合の補正
+function buildStateFrom(raw) {
+  return fixCorruptedPercentFields(migrateLegacyFields(deepMerge(createDefaultState(), raw), raw));
+}
+
+// 旧バージョンで保存されたデータを、現在の入力項目へ移す（rawに無い項目だけを対象にする）。
+function migrateLegacyFields(state, raw) {
+  const rawOc = (raw && raw.otherCosts) || {};
+  const rawIc = (raw && raw.initialCost) || {};
+  // 物件王会費：旧＝初期費用（一括）→ 現＝店舗経費の月額（事業検討!L46）
+  if (rawOc.membership === undefined) {
+    state.otherCosts.membership = Math.max(0, Number(rawIc.membershipFee) || 0);
+  }
+  state.initialCost.membershipFee = 0;
+  // 研修費：旧＝PPC・SVコンサルを含む合計310,000円を1項目 → 現＝研修費／PPCコンサル／SVコンサルの3項目
+  if (rawOc.training !== undefined && !Number(rawOc.ppcConsulting) && !Number(rawOc.svConsulting) && Number(rawOc.training) === 310000) {
+    state.otherCosts.training = 50000;
+    state.otherCosts.ppcConsulting = 10000;
+    state.otherCosts.svConsulting = 250000;
+  }
+  return state;
 }
 
 // 割合（0〜1）を保存すべき項目一覧。過去バージョンの入力欄バグにより、
@@ -24,7 +47,7 @@ function loadState() {
 // ケースがあるため、1を超えている（＝100%を超える割合はあり得ない）場合は
 // 誤って100倍のまま保存されたものとみなし、自動的に100で割って補正する。
 const PERCENT_FIELD_PATHS = [
-  'ad.cvr',
+  'ad.cvr', 'incentive.rate',
   'synergy.reform.profitRate', 'synergy.reform.allocRate', 'synergy.reform.conversionRate',
   'synergy.selfBuild.profitRate', 'synergy.selfBuild.allocRate', 'synergy.selfBuild.conversionRate',
   'synergy.referral.allocRate', 'synergy.referral.conversionRate'

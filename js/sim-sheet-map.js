@@ -76,7 +76,9 @@ function simInputCells(state) {
   out.push(simCell('事業検討', 'L37', simNum(oc.misc)));
   out.push(simCol('事業検討', 'L42', [simNum(oc.training), simNum(oc.ppcConsulting), simNum(oc.svConsulting)]));
   out.push(simCol('事業検討', 'C43', [simNum(oc.recruiting), simNum(oc.entertainment), simNum(oc.insurance), simNum(oc.storeRent)]));
-  out.push(simCell('事業検討', 'L46', 0));
+  out.push(simCell('事業検討', 'L46', simNum(oc.membership)));
+  out.push(simCell('事業検討', 'D54', simNum(state.incentive && state.incentive.cutoffFactor)));
+  out.push(simCell('事業検討', 'D58', simNum(state.incentive && state.incentive.rate)));
   out.push(simCell('事業検討', 'C48', oc.depreciationType || '改装'));
   out.push(simCell('事業検討', 'L51', simNum(ic.franchiseFee)));
   out.push(simCell('事業検討', 'L54', simNum(oc.renovationCostBasis)));
@@ -96,7 +98,7 @@ function simPlRows(pl) {
     [12, L.salary], [13, L.legalWelfare], [14, L.recruiting], [15, L.adSpend], [16, L.entertainment], [17, L.travel], [18, L.communication],
     [19, L.consumables], [20, L.officeSupplies], [21, L.equipment], [22, L.utilities], [23, L.dues], [24, L.lease], [25, L.insurance],
     [26, L.depreciation], [27, L.tax], [28, L.misc], [29, L.training], [30, L.consulting], [31, L.storeRunning],
-    [32, z],            // インセンティブ：シミュレーターでは計上しない
+    [32, L.incentive],
     [33, z],            // 店舗組成費（イニシャル）：シミュレーターの損益には含めない（事業検討シートに記載）
     [37, pl.sgaTotal], [40, pl.operatingIncome],
     [43, pl.nonOperatingIncomeLines.interestIncome], [44, pl.nonOperatingIncomeLines.miscIncome], [45, pl.nonOperatingIncome],
@@ -117,38 +119,10 @@ function simPlCells(sheet, pl) {
   return out;
 }
 
-/* ---------------- 簡易PL ---------------- */
-function simSummaryPlCells(result) {
-  const bp = result.businessPlan;
-  return [
-    simCell('簡易PL', 'D7', simNum(bp.reform.annualFreq)),
-    simCell('簡易PL', 'D8', simNum(bp.selfBuild.annualFreq)),
-    simCell('簡易PL', 'D9', simNum(bp.referral.annualFreq)),
-    simCell('簡易PL', 'I7', simNum(bp.reform.annualFreq))
-  ];
-}
-
 /* ---------------- ひな形の数式とシミュレーターの計算の違いを、シミュレーターに合わせる ---------------- */
 function simFixCells(result) {
   const out = [];
   const be = result.breakEven;
-  // 目標設定：種別内訳（土地）はシミュレーターは切り上げ（ひな形は切り捨て）
-  out.push(simCell('目標設定', 'AB24', simNum(be.targetLandCount)));
-
-  // 簡易PL：ひな形は売上高を足して「売上総利益」の合計にしている。シミュレーターは売上から原価を引いた粗利で数える
-  const gp = pl => ({
-    brokerage: simSum(pl.brokerageRevenue, 0, 12),
-    reform: simSum(pl.reformRevenue, 0, 12) - simSum(pl.reformCogs, 0, 12),
-    selfBuild: simSum(pl.selfBuildRevenue, 0, 12) - simSum(pl.selfBuildCogs, 0, 12),
-    referral: simSum(pl.referralRevenue, 0, 12)
-  });
-  [['E', result.pl1], ['J', result.pl2]].forEach(([col, pl]) => {
-    const g = gp(pl);
-    out.push(simCol('簡易PL', col + '6', [g.brokerage, g.reform, g.selfBuild, g.referral]));
-  });
-  // 簡易PLの月次グリッド：1ヵ月目の販管費が2ヵ月目の値のコピーになっているのを、実際の1ヵ月目に直す
-  out.push(simCell('簡易PL', 'AL7', "='PL（1年目）'!D37"));
-
   // まとめ：この表は売上総利益ベースなので、見出しを実態に合わせる
   out.push(simCell('まとめ', 'B54', '売上総利益 合計'));
   out.push(simCell('まとめ', 'H54', '売上総利益 合計'));
@@ -169,7 +143,6 @@ function buildSimCells(state, result) {
     ...simInputCells(state),
     ...simPlCells('PL（1年目）', result.pl1),
     ...simPlCells('PL（2年目以降）', result.pl2),
-    ...simSummaryPlCells(result),
     ...simFixCells(result)
   ];
 }
