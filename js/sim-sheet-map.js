@@ -128,13 +128,49 @@ function simSummaryPlCells(result) {
   ];
 }
 
+/* ---------------- ひな形の数式とシミュレーターの計算の違いを、シミュレーターに合わせる ---------------- */
+function simFixCells(result) {
+  const out = [];
+  const be = result.breakEven;
+  // 目標設定：種別内訳（土地）はシミュレーターは切り上げ（ひな形は切り捨て）
+  out.push(simCell('目標設定', 'AB24', simNum(be.targetLandCount)));
+
+  // 簡易PL：ひな形は売上高を足して「売上総利益」の合計にしている。シミュレーターは売上から原価を引いた粗利で数える
+  const gp = pl => ({
+    brokerage: simSum(pl.brokerageRevenue, 0, 12),
+    reform: simSum(pl.reformRevenue, 0, 12) - simSum(pl.reformCogs, 0, 12),
+    selfBuild: simSum(pl.selfBuildRevenue, 0, 12) - simSum(pl.selfBuildCogs, 0, 12),
+    referral: simSum(pl.referralRevenue, 0, 12)
+  });
+  [['E', result.pl1], ['J', result.pl2]].forEach(([col, pl]) => {
+    const g = gp(pl);
+    out.push(simCol('簡易PL', col + '6', [g.brokerage, g.reform, g.selfBuild, g.referral]));
+  });
+  // 簡易PLの月次グリッド：1ヵ月目の販管費が2ヵ月目の値のコピーになっているのを、実際の1ヵ月目に直す
+  out.push(simCell('簡易PL', 'AL7', "='PL（1年目）'!D37"));
+
+  // まとめ：この表は売上総利益ベースなので、見出しを実態に合わせる
+  out.push(simCell('まとめ', 'B54', '売上総利益 合計'));
+  out.push(simCell('まとめ', 'H54', '売上総利益 合計'));
+
+  // ターゲットエリア：未使用のエリア欄で #DIV/0! になる数式を、エラーにならないようにする
+  const rows = [59, 65, 71, 77, 83, 89, 95, 101];
+  rows.forEach(r => {
+    const rs = [r - 30, r - 24, r - 18, r - 12, r - 6, r];
+    const num = rs.map(x => 'AT' + x).join('+'), den = rs.map(x => 'K' + x).join('+');
+    out.push(simCell('ターゲットエリア', 'AM' + r, `=IFERROR((${num})/(${den}),0)`));
+  });
+  return out;
+}
+
 // ひな形に書き込む内容すべて
 function buildSimCells(state, result) {
   return [
     ...simInputCells(state),
     ...simPlCells('PL（1年目）', result.pl1),
     ...simPlCells('PL（2年目以降）', result.pl2),
-    ...simSummaryPlCells(result)
+    ...simSummaryPlCells(result),
+    ...simFixCells(result)
   ];
 }
 

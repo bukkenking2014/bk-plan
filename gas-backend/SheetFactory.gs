@@ -37,7 +37,6 @@ function doPost(e) {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (ACCESS_KEY && req.key !== ACCESS_KEY) return json_({ ok: false, error: '合言葉が違います' });
     if (req.action === 'ping') return json_({ ok: true });
-    if (req.action === 'importTemplate') return json_(importSimTemplate_(req));   // ひな形の取り込み（最初の1回だけ使う）
     if (req.action === 'create' || req.action === 'update') {
       // 自動更新が重なっても壊れないよう、1件ずつ順番に処理する
       const lock = LockService.getScriptLock();
@@ -156,7 +155,8 @@ function saveCompanyFiles_(folder, req) {
 
 // ---------------------------------------------------------------------------
 // シミュレーター結果のスプレッドシート（会社フォルダの「会社名_事業計画シミュレーター」）
-//   ・ひな形（事業計画書の12シート）を会社フォルダにコピーして使う。ひな形はルートフォルダの SIM_TEMPLATE_NAME。
+//   ・ひな形（事業計画書の12シート）を会社フォルダにコピーして使う。ひな形はルートフォルダの SIM_TEMPLATE_NAME（Googleスプレッドシート）。
+//     ひな形の見た目を直したいときは、ドライブでそのスプレッドシートを直接編集する（次に作る会社から反映される）。
 //   ・req.simCells … ひな形に書き込む値（シミュレーターの入力値・計算結果）。[{sheet, a1, values:[[...]]}]
 //   ・req.xlsxBase64 … 「サマリー」「グラフ」の2シートだけの Excel。変換して、ひな形のコピーの先頭に入れる。
 //   ・同名のスプレッドシートが既にあれば、中身（値・サマリー・グラフ）だけ差し替える。
@@ -181,20 +181,6 @@ function overwriteSheetWithXlsx_(fileId, bytes) {
   if (res.getResponseCode() >= 300) throw new Error('スプレッドシートへの保存に失敗しました（' + res.getResponseCode() + '）' + res.getContentText().slice(0, 120));
 }
 
-// ひな形を取り込む：Excel（事業計画書_整形版）を Google スプレッドシートに変換して、ルートフォルダに置く
-function importSimTemplate_(req) {
-  if (!req.xlsxBase64) return { ok: false, error: 'xlsxBase64 がありません' };
-  let file = simTemplateFile_();
-  if (file && !req.overwrite) return { ok: true, existed: true, id: file.getId(), url: file.getUrl() };
-  if (!file) {
-    const ss = SpreadsheetApp.create(SIM_TEMPLATE_NAME);
-    file = DriveApp.getFileById(ss.getId());
-    file.moveTo(rootFolder_());
-  }
-  overwriteSheetWithXlsx_(file.getId(), Utilities.base64Decode(req.xlsxBase64));
-  return { ok: true, existed: false, id: file.getId(), url: file.getUrl() };
-}
-
 function saveSimSheet_(folder, name, req) {
   let file = null;
   const it = folder.getFilesByName(name);
@@ -207,6 +193,7 @@ function saveSimSheet_(folder, name, req) {
     file = tpl.makeCopy(name, folder);
   }
   const ss = SpreadsheetApp.openById(file.getId());
+  ss.setSpreadsheetTimeZone('Asia/Tokyo');   // 「作成日」（TODAY）を日本時間で表示する
   applySimCells_(ss, req.simCells || []);
   if (req.xlsxBase64) mergeFrontSheets_(ss, Utilities.base64Decode(req.xlsxBase64));
   buildCharts_(ss);
