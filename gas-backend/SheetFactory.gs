@@ -318,6 +318,22 @@ function writeValues_(ss, rows, keepInputs) {
     INPUT_ROWS.forEach(function (n) { if (n <= data.length) data[n - 1][1] = cur[n - 1][0]; });
   }
   sh.getRange(1, 1, data.length, 2).setValues(data);
+  try { syncSalaryRoles_(ss, data); } catch (err) { /* 役割の補正に失敗しても更新は続ける */ }
+}
+
+// 給与整合性の「営業経験」列（B6:B10）を、連動データ（A6:A10）の役割に合わせる。
+// 給与欄は店長1・エージェント3・サポート2の6枠。サポートが3名以上いる場合は空いたエージェント枠に入れるため、
+// その行の区分も「サポート」にしないと、労働分配率がエージェントのまま計算されてしまう。
+function syncSalaryRoles_(ss, data) {
+  const sh = ss.getSheetByName('給与整合性');
+  if (!sh) return;
+  const AGENT_DEFAULT = { 6: '経験無し', 7: '3年以上', 8: '3年以上', 9: '経験無し', 10: '経験無し' };
+  for (let n = 6; n <= 10; n++) {
+    const label = String(data[n - 1] && data[n - 1][0] || '');
+    const want = label === 'サポート' ? 'サポート' : AGENT_DEFAULT[n];
+    const cell = sh.getRange('B' + n);
+    if (cell.getValue() !== want) cell.setValue(want);
+  }
 }
 
 // 各シートの見出しに社名を入れる（連動データ!B3 を参照するので、後から会社名が変わっても追従する）

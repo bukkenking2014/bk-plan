@@ -23,11 +23,9 @@ const SHEET_TABS = [
 function buildSheetLinkRows(state, result) {
   const st = state, r = result;
   const pl2 = r.pl2, bp = r.businessPlan, sum = r.summary;
-  const roles = ['店長（経験者）', 'エージェント', 'エージェント', 'エージェント', 'サポート', 'サポート'];
-  const sal = [
-    r.staff.managers[0], r.staff.agents[0], r.staff.agents[1], r.staff.agents[2],
-    r.staff.supports[0], r.staff.supports[1]
-  ].map(v => Math.round(v || 0));
+  const slots = staffSalarySlots(r.staff);   // 店長1・エージェント3・サポート2の6枠（超えた人は空き枠へ）
+  const roles = slots.map(x => x.label);
+  const sal = slots.map(x => x.salary);
   const m0 = k => (pl2.lines[k] && pl2.lines[k][0]) || 0;
   const areas = st.areas || [];
   // 決定事項の「ターゲットエリア」は最大6枠（左→右、上→下の順：D9, L9, D11, L11, D13, L13）。連続した6行に入れる
@@ -61,7 +59,7 @@ function buildSheetLinkRows(state, result) {
     ['雑費（月）', Math.round(m0('misc'))],
     ['研修費（月・コンサル費含む）', Math.round(m0('training') + m0('consulting'))],
     ['店舗経費（月）', Math.round(m0('storeRunning'))],
-    ['想定売上（2年目・売上総損益 年間）', Math.round(pl2.grossProfitSumYear)],
+    ['想定売上（2年目・売上総損益 年間）', Math.round((pl2.sheet.rows[9] || []).reduce((a, b) => a + b, 0))],   // 2年目PLの売上総損益（当期合計）
     ['インセンティブ原資（年額・2年目PLのインセンティブ合計）', Math.round(pl2.lines.incentive.reduce((a, b) => a + b, 0))],
     ['予測物件数', Math.round(estProps * 100) / 100],
     ['会員登録目標/月', Math.round(bp.targetLeads)],

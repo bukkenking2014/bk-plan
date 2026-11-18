@@ -55,6 +55,33 @@ function computeStaff(state) {
   return { managers, agents, supports, laborCostMonth, laborCostYear, salesHeadcount, supportHeadcount, totalHeadcount };
 }
 
+// スプレッドシート（目標設定・連動データ）の給与欄は6枠：店長1・エージェント3・サポート2。
+// 枠を超える人（例：サポート3名）は、空いている別の枠に入れる（ラベルも「サポート」にする）。
+// それでも足りない分は、同じ役割の最後の枠に給与を合算する（人件費の合計がずれないようにする）。
+function staffSalarySlots(staff) {
+  const SLOT_ROLE = ['店長（経験者）', 'エージェント', 'エージェント', 'エージェント', 'サポート', 'サポート'];
+  const home = { manager: [0], agent: [1, 2, 3], support: [4, 5] };
+  const label = { manager: SLOT_ROLE[0], agent: 'エージェント', support: 'サポート' };
+  const slots = SLOT_ROLE.map(l => ({ label: l, salary: 0, used: false }));
+  const lists = { manager: staff.managers || [], agent: staff.agents || [], support: staff.supports || [] };
+  const overflow = [];
+  Object.keys(lists).forEach(role => {
+    lists[role].forEach((v, i) => {
+      const idx = home[role][i];
+      if (idx !== undefined) { slots[idx].salary = nonNeg(v); slots[idx].used = true; }
+      else if (nonNeg(v) > 0) overflow.push({ role, salary: nonNeg(v) });
+    });
+  });
+  overflow.forEach(o => {
+    // 空いている枠（エージェント枠→サポート枠の順に、後ろから）を探す
+    const order = o.role === 'support' ? [3, 2, 1, 5, 4] : [5, 4, 3, 2, 1];
+    const free = order.find(i => !slots[i].used);
+    if (free !== undefined) { slots[free].salary = o.salary; slots[free].used = true; slots[free].label = label[o.role]; }
+    else { const last = home[o.role][home[o.role].length - 1]; slots[last].salary += o.salary; }
+  });
+  return slots.map(x => ({ label: x.label, salary: Math.round(x.salary) }));
+}
+
 /* ---------------------------------------------------------------------- */
 /* 2. ターゲットエリアシート：手数料単価・構成比                            */
 /* ---------------------------------------------------------------------- */

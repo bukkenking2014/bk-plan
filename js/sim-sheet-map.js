@@ -45,9 +45,10 @@ function simInputCells(state) {
   }
 
   // 目標設定：給与 E7:E12（店長1／エージェント3／サポート2）、年間営業利益目標 B21、対応事業 ■／□
-  const s = state.staff;
-  const sal = (list, i) => (list[i] ? simNum(list[i].salary) : '');
-  out.push(simCol('目標設定', 'E7', [sal(s.managers, 0), sal(s.agents, 0), sal(s.agents, 1), sal(s.agents, 2), sal(s.supports, 0), sal(s.supports, 1)]));
+  // 6枠：店長1・エージェント3・サポート2（超えた人は空き枠へ。ラベルも合わせる）
+  const slots = staffSalarySlots(computeStaff(state));
+  out.push(simCol('目標設定', 'B7', slots.map(x => x.label)));
+  out.push(simCol('目標設定', 'E7', slots.map(x => x.salary || '')));
   out.push(simCell('目標設定', 'B21', simNum(state.targetProfitAnnual)));
   const sy = state.synergy;
   out.push(simCell('目標設定', 'D38', sy.reform.enabled ? '■' : '□'));
