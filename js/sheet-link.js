@@ -178,9 +178,12 @@ async function driveFilesPayload() {
 }
 function filesWarn(j) { return j.filesError ? '\n\n※会社フォルダへのシミュレーター結果／リンクの保存に失敗しました：' + j.filesError : ''; }
 function hashStr(str) { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return String(h); }
+// シートへ送る中身（連動データ＋シミュレーター結果の値）の目印。入力だけでなく、計算ルールの更新で結果が変わった場合も検知する。
 function driveSyncSignature() {
-  const st = Object.assign({}, appState); delete st.sheets;
-  return hashStr(JSON.stringify(st) + '|' + currentAppUrl());
+  const result = runFullCalculation(appState);
+  const rows = buildSheetLinkRows(appState, result);
+  const cells = typeof buildSimCells === 'function' ? buildSimCells(appState, result) : [];
+  return hashStr(JSON.stringify(rows) + '|' + JSON.stringify(cells) + '|' + currentAppUrl() + '|' + ((appState.meta && appState.meta.companyName) || ''));
 }
 
 function createCompanySheet() {
@@ -235,9 +238,10 @@ function updateSheetValues() {
 // ---- 自動更新：入力が止まって少し経ったら、連動データとシミュレーター結果を自動で最新にする ----
 const DRIVE_AUTO_KEY = 'bkPlanSimulator.driveAutoSync';      // '0' なら自動更新オフ
 const DRIVE_PENDING_KEY = 'bkPlanSimulator.driveSyncPending'; // 未反映の変更があるスプレッドシートID
-const DRIVE_LAST_KEY = 'bkPlanSimulator.driveSyncLast';       // 最後に反映した内容の目印（シートID:署名）
+const DRIVE_LAST_KEY = 'bkPlanSimulator.driveSyncLast';       // 最後に反映した内容の目印（シートごとに「キー:シートID」で保存）
+function driveLastKey(id) { return DRIVE_LAST_KEY + ':' + (id || sheetIdOfState()); }
 const DRIVE_SYNC_DELAY_MS = 45000;
-let driveSyncTimer = null, driveSyncBusy = false;
+let driveSyncTimer = null, driveSyncBusy = false, driveSyncRetry = 0;
 const driveSyncInfo = { at: null, error: '' };
 
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -248,7 +252,7 @@ function driveSyncReady() {
 }
 function driveSyncMarkDone() {
   lsSet(DRIVE_PENDING_KEY, null);
-  lsSet(DRIVE_LAST_KEY, sheetIdOfState() + ':' + driveSyncSignature());
+  lsSet(driveLastKey(), driveSyncSignature());
   driveSyncInfo.at = new Date(); driveSyncInfo.error = '';
 }
 function driveSyncStatusText() {
@@ -280,27 +284,36 @@ async function runDriveSync() {
   if (!driveSyncReady()) return;
   if (driveSyncBusy) { scheduleDriveSync(5000); return; }
   const id = sheetIdOfState();
-  if (lsGet(DRIVE_LAST_KEY) === id + ':' + driveSyncSignature()) { lsSet(DRIVE_PENDING_KEY, null); driveSyncShowStatus(); return; } // 前回から変更なし
+  if (lsGet(driveLastKey(id)) === driveSyncSignature()) { lsSet(DRIVE_PENDING_KEY, null); driveSyncShowStatus(); return; } // 前回から変更なし
   driveSyncBusy = true; driveSyncShowStatus();
   try {
     const sig = driveSyncSignature();
     const files = await driveFilesPayload();
     const rows = buildSheetLinkRows(appState, runFullCalculation(appState));
     const j = await callSheetFactory(Object.assign({ action: 'update', sheetId: id, light: true, rows: rows }, files));
+    driveSyncRetry = 0;
     if (driveSyncSignature() === sig) driveSyncMarkDone();   // 送っている間にさらに入力があれば、次の予約に任せる
     else { driveSyncInfo.at = new Date(); driveSyncInfo.error = ''; }
     if (j.filesError) driveSyncInfo.error = j.filesError;
   } catch (e) {
     driveSyncInfo.error = e && e.message ? e.message : String(e);
     console.warn('drive auto sync failed', e);
+    // 失敗したら、少し待って自動でやり直す（最大3回）。それでもだめなら次の入力時／画面を開いた時に再試行
+    if (driveSyncRetry < 3) { driveSyncRetry++; scheduleDriveSync(30000 * driveSyncRetry); }
   } finally {
     driveSyncBusy = false; driveSyncShowStatus();
   }
 }
 
-// 起動時：前回、反映前に画面を閉じた変更が残っていれば、すぐ反映する
+// 起動時：シートの中身が最新でない可能性があれば、すぐ反映する。
+//   ・前回、反映前に画面を閉じた変更が残っている
+//   ・このブラウザで最後に反映した内容と、今の計算結果が違う（別の人・別の端末で直した／計算ルールが更新された 等）
 function bootDriveSync() {
-  if (lsGet(DRIVE_PENDING_KEY) && lsGet(DRIVE_PENDING_KEY) === sheetIdOfState()) scheduleDriveSync(3000);
+  if (!driveSyncReady()) return;
+  const id = sheetIdOfState();
+  let stale = lsGet(DRIVE_PENDING_KEY) === id;
+  if (!stale) { try { stale = lsGet(driveLastKey(id)) !== driveSyncSignature(); } catch (e) { stale = false; } }
+  if (stale) scheduleDriveSync(3000);
 }
 // 画面を離れる（別タブへ移動・閉じる）ときは、待たずにすぐ反映する
 document.addEventListener('visibilitychange', () => {
