@@ -445,6 +445,7 @@ function renderStepCosts() {
       <p class="desc" style="margin-top:-4px">免許費用（免許「無し」の場合のみ自動計上）に加え、以下は免許の有無に関わらず計上されます。</p>
       <div class="field-row">
         ${fieldNumber('物件王 加盟金', 'initialCost.franchiseFee', ic.franchiseFee, { suffix: '円' })}
+        ${fieldNumber('店舗改装費用', 'otherCosts.renovationCostBasis', oc.renovationCostBasis, { suffix: '円', hint: '内装工事費用。減価償却の対象になります（既定0円）' })}
         ${fieldNumber('看板設置費用', 'initialCost.signageCost', ic.signageCost, { suffix: '円' })}
       </div>
       <h3>消耗品費・事務用品費・諸会費</h3>
@@ -502,9 +503,9 @@ function renderStepCosts() {
         ${fieldNumber('足切り係数', 'incentive.cutoffFactor', appState.incentive.cutoffFactor, { suffix: '倍', hint: '給与合計 × 係数 を超えた仲介手数料が対象' })}
         ${fieldNumber('インセンティブ率', 'incentive.rate', Math.round(appState.incentive.rate * 1000) / 10, { suffix: '%', percent: true, hint: '足切りを超えた分に掛ける率' })}
       </div>
-      <h3>減価償却（内装工事等）</h3>
+      <h3>減価償却（店舗改装費用）</h3>
+      <p class="desc" style="margin-top:-4px">上の「店舗改装費用」を、下の償却区分の年数で償却します。</p>
       <div class="field-row">
-        ${fieldNumber('内装工事費用（減価償却対象）', 'otherCosts.renovationCostBasis', oc.renovationCostBasis, { suffix: '円' })}
         <div class="field">
           <label>償却区分</label>
           <select data-path="otherCosts.depreciationType">
