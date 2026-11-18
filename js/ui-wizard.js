@@ -289,14 +289,14 @@ function previewGoals(result) {
         <div class="preview-stat"><div class="label">人件費/月</div><div class="value">${yen(st.laborCostMonth)}</div></div>
         <div class="preview-stat"><div class="label">人件費/年</div><div class="value">${yen(st.laborCostYear)}</div></div>
         <div class="preview-stat"><div class="label">その他費用/年</div><div class="value">${yen(oc.grandTotal)}</div></div>
-        <div class="preview-stat highlight"><div class="label">損益分岐点/年</div><div class="value">${yen(be.breakEvenAnnual)}</div></div>
+        <div class="preview-stat"><div class="label">損益分岐点/年</div><div class="value">${yen(be.breakEvenAnnual)}</div></div>
       </div>
 
       <h4 class="preview-subhead">必要契約件数の考え方</h4>
       <p class="preview-formula">損益分岐点/年（${yen(be.breakEvenAnnual)}） ÷ 手数料/件（${yen(result.areas.feeRawYen)}） ＝ 必要契約数/年　${num(be.requiredContractsYear)}件</p>
       <div class="preview-grid">
         <div class="preview-stat"><div class="label">必要契約数/年</div><div class="value">${num(be.requiredContractsYear)}<small>件</small></div></div>
-        <div class="preview-stat highlight"><div class="label">必要契約数/月（片手1本換算）</div><div class="value">${num(be.requiredContractsMonth)}<small>件</small></div></div>
+        <div class="preview-stat"><div class="label">必要契約数/月（片手1本換算）</div><div class="value">${num(be.requiredContractsMonth)}<small>件</small></div></div>
       </div>
       <table class="mini-table" style="margin-top:14px">
         <thead><tr><th>年間契約数</th><th>手数料合計</th><th>営業利益（損益余剰分）</th></tr></thead>
@@ -307,13 +307,13 @@ function previewGoals(result) {
       <p class="preview-formula">年間営業利益目標（${yen(appState.targetProfitAnnual)}） ÷ 手数料/件（${yen(result.areas.feeRawYen)}） ＝ 追加で必要な契約数/年　${num(be.targetProfitContractsYear)}件</p>
       <div class="preview-grid">
         <div class="preview-stat"><div class="label">必要契約数/年</div><div class="value">${num(be.targetProfitContractsYear)}<small>件</small></div></div>
-        <div class="preview-stat highlight"><div class="label">必要契約数/月</div><div class="value">${num(be.targetProfitContractsMonth)}<small>件</small></div></div>
+        <div class="preview-stat"><div class="label">必要契約数/月</div><div class="value">${num(be.targetProfitContractsMonth)}<small>件</small></div></div>
       </div>
 
       <h4 class="preview-subhead">目標とする契約件数（採用値）</h4>
       <div class="preview-grid">
-        <div class="preview-stat highlight"><div class="label">目標契約件数/月</div><div class="value">${num(be.targetContractsMonth)}<small>件</small></div></div>
-        <div class="preview-stat highlight"><div class="label">目標契約件数/年</div><div class="value">${num(be.targetContractsYear)}<small>件</small></div></div>
+        <div class="preview-stat"><div class="label">目標契約件数/月</div><div class="value">${num(be.targetContractsMonth)}<small>件</small></div></div>
+        <div class="preview-stat"><div class="label">目標契約件数/年</div><div class="value">${num(be.targetContractsYear)}<small>件</small></div></div>
       </div>
       <table class="mini-table" style="margin-top:12px;max-width:320px">
         <thead><tr><th>種別</th><th>年間目標件数</th></tr></thead>
