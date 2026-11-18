@@ -307,7 +307,7 @@ function saveLinkDoc_(folder, name, appUrl, companyName) {
 }
 
 // keepInputs=true（更新時）：手入力欄（INPUT_ROWS）は上書きしない
-const INPUT_ROWS = [25]; // 連動データ B25：インセンティブ原資（年額）は人が入力する
+const INPUT_ROWS = []; // 手入力で残す行（なし）。B25のインセンティブ原資は、2年目PLのインセンティブ合計をアプリから入れる
 function writeValues_(ss, rows, keepInputs) {
   if (!rows || !rows.length) throw new Error('連動データが空です');
   const sh = ss.getSheetByName(VALUES_SHEET);
@@ -356,21 +356,35 @@ function mixRgb_(a, b, k) { return [0, 1, 2].map(function (i) { return a[i] * (1
 //  ・インセンティブ検討：勤続（経過月数）の式 T11:T14
 // ---------------------------------------------------------------------------
 const ABILITY_THICK_RIGHT = ["AC6", "AC8", "AN6", "AN8:AN9", "AN11:AN23", "AN27:AN35", "AN39:AN43", "AN47:AN56", "BA6", "BA8", "BL6", "BL8:BL9", "BL11:BL23", "BL27:BL35", "BL39:BL43", "BL47:BL56", "BY6", "BY8", "BY25", "BY37", "BY45", "BY58", "CJ6", "CJ8:CJ9", "CJ11:CJ23", "CJ25", "CJ27:CJ35", "CJ37", "CJ39:CJ43", "CJ45", "CJ47:CJ56", "CJ58", "AK11:AK23", "AK27:AK35", "AK39:AK43", "AK47:AK56", "BI11:BI23", "BI27:BI35", "BI39:BI43", "BI47:BI56", "CG11:CG23", "CG27:CG35", "CG39:CG43", "CG47:CG56"];
-const ABILITY_COLOR_MAP = { '#ccffcc': '#a3e8a3', '#ccecff': '#a3d9ff', '#ffccff': '#f5a8f5' };
+// 点数セルの条件付き書式の色（緑＝本人、青＝指導、ピンク＝店長）。
+// 配色の調整（softenColors_）が更新のたびに薄くするため、今の色の系統（色相）で判定して、毎回同じ濃さに置き換える。
+const ABILITY_COLORS = { green: '#a3e8a3', blue: '#a3d9ff', pink: '#f5a8f5' };
+function abilityColorFor_(bg) {
+  const c = hexToRgb_(bg);
+  if (!c || (c[0] === c[1] && c[1] === c[2])) return null;
+  if (c[2] >= c[1] && c[2] > c[0]) return ABILITY_COLORS.blue;     // 青っぽい
+  if (c[1] > c[0] && c[1] >= c[2]) return ABILITY_COLORS.green;    // 緑っぽい
+  if (c[0] > c[1] && c[2] > c[1]) return ABILITY_COLORS.pink;      // ピンクっぽい
+  return null;
+}
 
 function fixTemplateSheets_(ss) {
   const ab = ss.getSheetByName('能力判定');
   if (ab) {
+    // 右側の太線：そのセルの右辺と、右隣のセルの左辺の両方に引く（隣の細線に負けないように）
     ABILITY_THICK_RIGHT.forEach(function (a1) {
-      ab.getRange(a1).setBorder(null, null, null, true, null, null, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+      const rg = ab.getRange(a1);
+      rg.setBorder(null, null, null, true, null, null, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+      rg.offset(0, rg.getNumColumns()).setBorder(null, true, null, null, null, null, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
     });
+    SpreadsheetApp.flush();
     const rules = ab.getConditionalFormatRules();
     let changed = false;
     const next = rules.map(function (rule) {
       let bg = null;
       try { bg = rule.getBooleanCondition() && rule.getBooleanCondition().getBackground(); } catch (e) { bg = null; }
-      const to = bg && ABILITY_COLOR_MAP[String(bg).toLowerCase()];
-      if (!to) return rule;
+      const to = bg && abilityColorFor_(bg);
+      if (!to || String(bg).toLowerCase() === to) return rule;
       changed = true;
       return rule.copy().setBackground(to).build();
     });

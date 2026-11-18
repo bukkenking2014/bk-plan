@@ -34,10 +34,18 @@ function migrateLegacyFields(state, raw) {
   }
   state.initialCost.membershipFee = 0;
   // 研修費：旧＝PPC・SVコンサルを含む合計310,000円を1項目 → 現＝研修費／PPCコンサル／SVコンサルの3項目
-  if (rawOc.training !== undefined && !Number(rawOc.ppcConsulting) && !Number(rawOc.svConsulting) && Number(rawOc.training) === 310000) {
-    state.otherCosts.training = 50000;
-    state.otherCosts.ppcConsulting = 10000;
-    state.otherCosts.svConsulting = 250000;
+  // ・PPC／SVが未入力（0）のまま研修費だけ310,000円 → 3項目に分ける
+  // ・過渡期に、PPC=10,000／SV=250,000が初期値として入ったまま研修費が310,000円で保存された場合
+  //   （合計570,000円になってしまう）→ 研修費だけを50,000円に直す
+  if (rawOc.training !== undefined && Number(rawOc.training) === 310000) {
+    const ppc = Number(rawOc.ppcConsulting) || 0, sv = Number(rawOc.svConsulting) || 0;
+    if (!ppc && !sv) {
+      state.otherCosts.training = 50000;
+      state.otherCosts.ppcConsulting = 10000;
+      state.otherCosts.svConsulting = 250000;
+    } else if (ppc === 10000 && sv === 250000) {
+      state.otherCosts.training = 50000;
+    }
   }
   return state;
 }

@@ -127,9 +127,11 @@ function computeAreas(state) {
 
   // レインズ物件数 = 全エリア合計物件数 × 1.1
   const rainsCount = totalCount * 1.1;
+  // 世帯物件数 = 全エリア世帯数 ÷ 10000 × 100（ターゲットエリア!S6 = K12/10000*100）
+  const householdProps = householdsTotal / 10000 * 100;
 
   return {
-    details, totalCount, rainsCount, totalRevenueMan, avgFeeManOverall,
+    details, totalCount, rainsCount, householdProps, totalRevenueMan, avgFeeManOverall,
     landRatio, usedRatio, newRatio, householdsTotal, typeTotals,
     feeRawYen, feeRoundedYen
   };
