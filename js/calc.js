@@ -56,28 +56,28 @@ function computeStaff(state) {
 }
 
 // スプレッドシート（目標設定・連動データ）の給与欄は6枠：店長1・エージェント3・サポート2。
-// 枠を超える人（例：サポート3名）は、空いている別の枠に入れる（ラベルも「サポート」にする）。
+// サポートが3名以上のときは、追加した順に上から並ぶよう、下から詰めて空いているエージェント枠にも入れる（ラベルも「サポート」にする）。
 // それでも足りない分は、同じ役割の最後の枠に給与を合算する（人件費の合計がずれないようにする）。
 function staffSalarySlots(staff) {
   const SLOT_ROLE = ['店長（経験者）', 'エージェント', 'エージェント', 'エージェント', 'サポート', 'サポート'];
-  const home = { manager: [0], agent: [1, 2, 3], support: [4, 5] };
-  const label = { manager: SLOT_ROLE[0], agent: 'エージェント', support: 'サポート' };
   const slots = SLOT_ROLE.map(l => ({ label: l, salary: 0, used: false }));
-  const lists = { manager: staff.managers || [], agent: staff.agents || [], support: staff.supports || [] };
-  const overflow = [];
-  Object.keys(lists).forEach(role => {
-    lists[role].forEach((v, i) => {
-      const idx = home[role][i];
-      if (idx !== undefined) { slots[idx].salary = nonNeg(v); slots[idx].used = true; }
-      else if (nonNeg(v) > 0) overflow.push({ role, salary: nonNeg(v) });
-    });
-  });
-  overflow.forEach(o => {
-    // 空いている枠（エージェント枠→サポート枠の順に、後ろから）を探す
-    const order = o.role === 'support' ? [3, 2, 1, 5, 4] : [5, 4, 3, 2, 1];
-    const free = order.find(i => !slots[i].used);
-    if (free !== undefined) { slots[free].salary = o.salary; slots[free].used = true; slots[free].label = label[o.role]; }
-    else { const last = home[o.role][home[o.role].length - 1]; slots[last].salary += o.salary; }
+  const put = (i, salary, label) => { slots[i].salary = nonNeg(salary); slots[i].used = true; if (label) slots[i].label = label; };
+  const addInto = (i, salary) => { slots[i].salary += nonNeg(salary); };
+  const managers = staff.managers || [], agents = staff.agents || [], supports = staff.supports || [];
+  // 店長・エージェント：自分の枠に入れる（枠を超えた人は、最後の枠に合算）
+  managers.forEach((v, i) => { if (i < 1) put(0, v); else addInto(0, v); });
+  agents.forEach((v, i) => { if (i < 3) put(1 + i, v); else addInto(3, v); });
+  // サポート：追加した順に上から入れる。2名までは元のサポート枠（9・10行目）、
+  // 3名以上は、下から詰めて並べる（空いているエージェント枠に食い込む）。足りない分は最後の枠に合算
+  const k = supports.length;
+  const want = k <= 2 ? [4, 5].slice(0, k) : Array.from({ length: k }, (_, i) => 6 - k + i);
+  supports.forEach((v, i) => {
+    const target = want[i];
+    if (target !== undefined && !slots[target].used) put(target, v, 'サポート');
+    else {
+      const free = [1, 2, 3, 4, 5].find(j => !slots[j].used);
+      if (free !== undefined) put(free, v, 'サポート'); else addInto(5, v);
+    }
   });
   return slots.map(x => ({ label: x.label, salary: Math.round(x.salary) }));
 }
