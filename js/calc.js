@@ -463,9 +463,8 @@ function buildSheetPL(state, pl, businessPlan, initialSetup, openingCF) {
   const mode = {};
   [59, 61].forEach(r => { mode[r] = 'none'; });
   [62, 68].forEach(r => { mode[r] = 'close'; });
-  // 当期合計の売上総損益（行9のR列）は、元シートでは仲介＋建築シナジーの合計（行4〜7）として計算される
-  const grossYear = [4, 5, 6, 7].reduce((t, r) => t + sumAll(R[r]), 0);
-  return { rows: R, mode, closingCF: R[62][11], totalOverride: { 9: grossYear } };
+  // 売上総損益 ＝ 売上高 − 売上原価。当期合計も上期＋下期の合計（＝当期の売上高 − 売上原価）にする
+  return { rows: R, mode, closingCF: R[62][11], totalOverride: {} };
 }
 
 /* ---------------------------------------------------------------------- */
